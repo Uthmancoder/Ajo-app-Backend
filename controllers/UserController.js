@@ -390,47 +390,49 @@ const GetMembers = async (req, res, next) => {
 };
 
 // Initiate  the  payment  process
-// const InitiatePayment = async (req, res, next) => {
-//   const { email, amount, tx_ref, username } = req.body;
+const InitiatePayment = async (req, res, next) => {
+  const { email, amount, tx_ref, username } = req.body;
 
-//   const FlutterwaveSecretKey = process.env.FLW_SECRET;
+  const FlutterwaveSecretKey = process.env.FLW_SECRET;
 
-//   try {
-//     const response = await axios.post(
-//       "https://api.flutterwave.com/v3/payments",
-//       {
-//         tx_ref: tx_ref,
-//         amount: amount,
-//         currency: "NGN",
-//         email: email,
-//         username: username,
-//         redirect_url: "http://localhost:3001/account",
-//         customizations: {
-//           title: "Funding Wallet",
-//           logo: "https://www.shutterstock.com/image-vector/ultimate-text-effect-abstract-modern-600w-2075952592.jpg",
-//         },
-//         merchant: {
-//           name: username, // Set the merchant name to the contributor's username
-//         },
-//       },
-//       {
-//         headers: {
-//           Authorization: `Bearer ${FlutterwaveSecretKey}`,
-//         },
-//       }
-//     );
+  try {
+    const response = await axios.post(
+      "https://api.flutterwave.com/v3/payments",
+      {
+        tx_ref: tx_ref,
+        amount: amount,
+        currency: "NGN",
+        redirect_url: "http://localhost:3001/account",
+        customer :{
+          email: email,
+          username: username,
+        },
+        customizations: {
+          title: "Funding Wallet",
+          logo: "https://www.shutterstock.com/image-vector/ultimate-text-effect-abstract-modern-600w-2075952592.jpg",
+        },
+        merchant: {
+          name: username, // Set the merchant name to the contributor's username
+        },
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${FlutterwaveSecretKey}`,
+        },
+      }
+    );
 
-//     console.log("Flutterwave Response:", response.data);
-//     const  flutterwaveResponse = response.data
-//     return res.status(200).json({ success: true,
-//        message: "Payment initiated successfully" ,
-//        flutterwaveResponse });
-//   } catch (err) {
-//     console.log("Error:", err.code);
-//     console.log("Error Response:", err.response.data);
-//     return res.status(500).json({ success: false, message: "Payment initiation failed" });
-//   }
-// };
+    console.log("Flutterwave Response:", response.data);
+    const  flutterwaveResponse = response.data
+    return res.status(200).json({ success: true,
+       message: "Payment initiated successfully" ,
+       flutterwaveResponse });
+  } catch (err) {
+    console.log("Error:", err.code);
+    console.log("Error Response:", err.response.data);
+    return res.status(500).json({ success: false, message: "Payment initiation failed" });
+  }
+};
 
 // Add a new user to existing thrift
 const AddUserToGroup = async (req, res, next) => {
@@ -489,5 +491,5 @@ module.exports = {
   FindExistingThrift,
   GetMembers,
   AddUserToGroup,
-  // InitiatePayment
+  InitiatePayment
 };
