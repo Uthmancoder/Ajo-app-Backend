@@ -315,9 +315,10 @@ const FindExistingThrift = async (req, res, next) => {
 
     if (existingThrifts && existingThrifts.length > 0) {
       const thriftsResponse = existingThrifts.map((existingThrift) => {
-        const verifiedMembers = existingThrift.Members.map(
-          (member) => member.verified
-        );
+        const verifiedMembers = existingThrift.Members.map((member) => ({
+          verified: member.verified,
+          username: member.username,
+        }));
         return {
           groupName: existingThrift.groupName,
           groupIcon: existingThrift.image_url,
@@ -388,8 +389,7 @@ const GetMembers = async (req, res, next) => {
   }
 };
 
-
-// Initiate  the  payment  process 
+// Initiate  the  payment  process
 // const InitiatePayment = async (req, res, next) => {
 //   const { email, amount, tx_ref, username } = req.body;
 
@@ -431,10 +431,6 @@ const GetMembers = async (req, res, next) => {
 //     return res.status(500).json({ success: false, message: "Payment initiation failed" });
 //   }
 // };
-
-
-
-
 
 // Add a new user to existing thrift
 const AddUserToGroup = async (req, res, next) => {
