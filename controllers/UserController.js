@@ -435,6 +435,66 @@ const InitiatePayment = async (req, res, next) => {
   }
 };
 
+
+// Get Response from flutterwave to update the wallet
+const getPayments = async (req, res) => {
+  try {
+    const { tx_ref } = req.body;
+    const FlutterwaveSecretKey = process.env.FLW_SECRET;
+
+    // Make a request to Flutterwave's API to verify the payment status
+    const response = await axios.get(
+      `https://api.flutterwave.com/v3/transactions/${tx_ref}/verify`,
+      {
+        headers: {
+          Authorization: `Bearer ${FlutterwaveSecretKey}`,
+        },
+      }
+    );
+
+    const paymentData = response.data.data;
+    console.log(paymentData)
+
+    if (paymentData.status === 'successful') {
+      // Payment was successful, update user's wallet here
+      const userEmail = paymentData.customer.email;
+      const amountPaid = paymentData.amount;
+
+      const user = await userModel.findOne({ email: userEmail });
+      console.log(user);
+      if (user) {
+        // Update the user's wallet balance based on the amountPaid
+        // You need to implement the wallet update logic based on your system's design
+        // For example: user.wallet += amountPaid;
+        user.wallet += amountPaid;
+
+        await user.save();
+
+        return res.status(200).json({
+          success: true,
+          message: 'Payment verified and wallet updated successfully',
+        });
+      } else {
+        return res.status(404).json({
+          success: false,
+          message: 'User not found',
+        });
+      }
+    } else {
+      return res.status(400).json({
+        success: false,
+        message: 'Payment was not successful',
+      });
+    }
+  } catch (error) {
+    console.error('Error verifying payment:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Error verifying payment',
+    });
+  }
+}
+
 // Add a new user to existing thrift
 const AddUserToGroup = async (req, res, next) => {
   try {
@@ -492,5 +552,6 @@ module.exports = {
   FindExistingThrift,
   GetMembers,
   AddUserToGroup,
-  InitiatePayment
+  InitiatePayment,
+  getPayments
 };
