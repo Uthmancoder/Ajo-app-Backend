@@ -293,7 +293,7 @@ const CreateAThrift = async (req, res, next) => {
     return res.status(201).send({
       message: `${newThrift.groupName},group created successfully. we are so happy to have you on board You can kindly add more users to your group via the grouplink.`,
       status: true,
-      link: `http://localhost:3001/group/${groupId}`,
+      link: `https://ultimate-ajo-app.netlify.app/groups/${groupId}`,
       createdAt: createdAt.toISOString(), // Include the full timestamp if needed
       date: date, // Include the extracted date
       time: time, // Include the extracted time
