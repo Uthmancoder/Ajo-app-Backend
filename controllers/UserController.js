@@ -392,6 +392,7 @@ const GetMembers = async (req, res, next) => {
 // Initiate  the  payment  process
 const InitiatePayment = async (req, res, next) => {
   const { email, amount, tx_ref, username } = req.body;
+  console.log(req.body)
 
   const FlutterwaveSecretKey = process.env.FLW_SECRET;
 
