@@ -392,7 +392,7 @@ const GetMembers = async (req, res, next) => {
 // Initiate  the  payment  process
 const InitiatePayment = async (req, res, next) => {
   const { email, amount, tx_ref, username } = req.body;
-  console.log(req.body)
+  console.log(req.body);
 
   const FlutterwaveSecretKey = process.env.FLW_SECRET;
 
@@ -404,7 +404,7 @@ const InitiatePayment = async (req, res, next) => {
         amount: amount,
         currency: "NGN",
         redirect_url: "http://localhost:3001/account",
-        customer :{
+        customer: {
           email: email,
           username: username,
         },
@@ -424,76 +424,127 @@ const InitiatePayment = async (req, res, next) => {
     );
 
     console.log("Flutterwave Response:", response.data);
-    const  flutterwaveResponse = response.data
-    return res.status(200).json({ success: true,
-       message: "Payment initiated successfully" ,
-       flutterwaveResponse });
+    const flutterwaveResponse = response.data;
+    const transactionId = flutterwaveResponse.data.id; //for Accessing the transaction_id
+    console.log(transactionId);
+
+    return res.status(200).json({
+      success: true,
+      message: "Payment initiated successfully",
+      flutterwaveResponse,
+    });
   } catch (err) {
     console.log("Error:", err.code);
-    console.log("Error Response:", err.response.data);
-    return res.status(500).json({ success: false, message: "Payment initiation failed" });
+    // console.log("Error Response:", err.response.data);
+    return res
+      .status(500)
+      .json({ success: false, message: "Payment initiation failed" });
   }
 };
 
-
-// Get Response from flutterwave to update the wallet
-const getPayments = async (req, res) => {
+const paymentNotifications = async (req, res) => {
   try {
-    const { tx_ref } = req.body;
-    const FlutterwaveSecretKey = process.env.FLW_SECRET;
+    const eventType = req.body.event;
+    if (eventType === 'payment.success') {
+  
+      const { tx_ref, transaction_id, amount, currency, email } = req.body.data;
+      // Verify payment and update wallet here
+      console.log(req.body.data)
+      const user = await userModel.findOne({ email: email });
+        console.log(user);
+        if (user) {
+          user.Wallet += amount;
+          await user.save();
+          return res.status(200).json({
+            success: true,
+            message: "Payment verified and wallet updated successfully",
+          });
+        } else {
+          return res.status(404).json({
+            success: false,
+            message: "User not found",
+          });
+        }
 
-    // Make a request to Flutterwave's API to verify the payment status
-    const response = await axios.get(
-      `https://api.flutterwave.com/v3/transactions/${tx_ref}/verify`,
-      {
-        headers: {
-          Authorization: `Bearer ${FlutterwaveSecretKey}`,
-        },
-      }
-    );
+      console.log('Payment success:', req.body.data);
 
-    const paymentData = response.data.data;
-    console.log(paymentData)
-
-    if (paymentData.status === 'successful') {
-      // Payment was successful, update user's wallet here
-      const userEmail = paymentData.customer.email;
-      const amountPaid = paymentData.amount;
-
-      const user = await userModel.findOne({ email: userEmail });
-      console.log(user);
-      if (user) {
-        // Update the user's wallet balance based on the amountPaid
-        // You need to implement the wallet update logic based on your system's design
-        // For example: user.wallet += amountPaid;
-        user.wallet += amountPaid;
-
-        await user.save();
-
-        return res.status(200).json({
-          success: true,
-          message: 'Payment verified and wallet updated successfully',
-        });
-      } else {
-        return res.status(404).json({
-          success: false,
-          message: 'User not found',
-        });
-      }
-    } else {
-      return res.status(400).json({
-        success: false,
-        message: 'Payment was not successful',
-      });
+      // Send a response indicating successful processing of the webhook
+      res.status(200).json({ message: 'Webhook received and processed' });
     }
   } catch (error) {
-    console.error('Error verifying payment:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Error verifying payment',
-    });
+    console.error('Webhook error:', error);
+    res.status(500).json({ message: 'Error processing webhook' });
   }
-}
+};
+
+// Get Response from flutterwave to update the wallet
+// const getPayments = async (req, res) => {
+//   console.log("Request received at getPayments route");
+//   try {
+//     const { tx_ref, userEmail } = req.query; 
+//     console.log("tx_ref:", tx_ref);
+//     console.log("userMail", userEmail);
+
+//     // const FlutterwaveSecretKey = process.env.FLW_SECRET;
+
+//     // // Make a request to Flutterwave's API to verify the payment status
+//     // const response = await axios.get(
+//     //   `https://api.flutterwave.com/v3/transactions/${tx_ref}/verify`,
+//     //   {
+//     //     headers: {
+//     //       Authorization: `Bearer ${FlutterwaveSecretKey}`
+//     //     },
+//     //   }
+//     // );
+//     // const paymentData = response.data.data;
+//     // console.log(paymentData)
+//     // const paymentId = paymentData.data.id; //for Accessing the transaction_id
+//     // console.log(paymentId);
+
+//     if (req.query.status === "successful") {
+//       const transactionDetails = await Transaction.find({
+//         ref: req.query.tx_ref,
+//       });
+//       const response = await flw.Transaction.verify({
+//         id: req.query.transaction_id,
+//       });
+//       if (
+//         response.data.status === "successful" &&
+//         response.data.amount === transactionDetails.amount &&
+//         response.data.currency === "NGN"
+//       ) {
+//         // Success! Confirm the customer's payment
+//         const amountPaid = transactionDetails.amount;
+//         const user = await userModel.findOne({ email: userEmail });
+//         console.log(user);
+//         if (user) {
+//           user.Wallet += amountPaid;
+//           await user.save();
+//           return res.status(200).json({
+//             success: true,
+//             message: "Payment verified and wallet updated successfully",
+//           });
+//         } else {
+//           return res.status(404).json({
+//             success: false,
+//             message: "User not found",
+//           });
+//         }
+//       }
+//     } else {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Payment was not successful",
+//       });
+//     }
+//   } catch (error) {
+//     console.error("Error verifying payment:", error);
+//     return res.status(500).json({
+//       success: false,
+//       message: "Error verifying payment",
+//     });
+//   }
+// };
 
 // Add a new user to existing thrift
 const AddUserToGroup = async (req, res, next) => {
@@ -553,5 +604,5 @@ module.exports = {
   GetMembers,
   AddUserToGroup,
   InitiatePayment,
-  getPayments
+  paymentNotifications,
 };
