@@ -9,7 +9,7 @@ UserRouter.get("/SaveCurrentUser", SaveCurrentUser);
 UserRouter.post("/CreateThrift", verifyUserToken, CreateAThrift);
 UserRouter.get("/ExistingThrift", verifyUserToken, FindExistingThrift);
 UserRouter.post("/getMembers", verifyUserToken, GetMembers);
-UserRouter.post("/addusers", verifyUserToken, AddUserToGroup);
+UserRouter.post("/addusers", AddUserToGroup);
 UserRouter.post("/InitiatePayment", InitiatePayment);
 UserRouter.get("/Notification", paymentNotifications);
 module.exports = UserRouter;

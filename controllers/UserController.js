@@ -116,7 +116,7 @@ const verifyUserToken = async (req, res, next) => {
   //   });
   // }
   if (typeof authHeader === "undefined")
-    return res.status.send({ message: "User not found" });
+    return res.status(404).send({ message: "User not found" });
   const token = authHeader.split(" ")[1];
 
   try {
@@ -554,10 +554,9 @@ const paymentNotifications = async (req, res) => {
 // Add a new user to existing thrift
 const AddUserToGroup = async (req, res, next) => {
   try {
-    const { username, groupName } = req.body;
-
+    const { username, groupname } = req.body;
     // Find the thrift group based on the groupname
-    const thriftGroup = await ThriftModel.findOne({ groupName });
+    const thriftGroup = await ThriftModel.findOne({ groupname });
     const user = await userModel.findOne({ username }); // Changed from userName to username
     if (!thriftGroup) {
       return res.status(404).send({
