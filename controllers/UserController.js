@@ -293,7 +293,7 @@ const CreateAThrift = async (req, res, next) => {
     return res.status(201).send({
       message: `${newThrift.groupName},group created successfully. we are so happy to have you on board You can kindly add more users to your group via the grouplink.`,
       status: true,
-      link: `https://ultimate-ajo-app.netlify.app/groups/${groupId}`,
+      link: `http://localhost:3001/jointhrift`,
       createdAt: createdAt.toISOString(), // Include the full timestamp if needed
       date: date, // Include the extracted date
       time: time, // Include the extracted time
@@ -371,6 +371,11 @@ const GetMembers = async (req, res, next) => {
         plan: plan,
         groupName: groupName,
         groupMembers: groupMembers,
+        groupIcon: thriftGroup.image_url,
+        RequiredUsers: thriftGroup.RequiredUsers,
+        Amount: thriftGroup.Amount,
+        plan: thriftGroup.plan,
+        Total: thriftGroup.Total,
       });
     } else {
       return res.status(404).json({
@@ -435,7 +440,7 @@ const InitiatePayment = async (req, res, next) => {
     });
   } catch (err) {
     console.log("Error:", err.code);
-    // console.log("Error Response:", err.response.data);
+    console.log("Error Response:", err.response.data);
     return res
       .status(500)
       .json({ success: false, message: "Payment initiation failed" });
@@ -549,14 +554,20 @@ const paymentNotifications = async (req, res) => {
 // Add a new user to existing thrift
 const AddUserToGroup = async (req, res, next) => {
   try {
-    const { groupId } = req.params;
-    const { username, verified } = req.body;
+    const { username, groupName } = req.body;
 
-    // Find the thrift group based on the groupId
-    const thriftGroup = await ThriftModel.findById(groupId);
+    // Find the thrift group based on the groupname
+    const thriftGroup = await ThriftModel.findOne({ groupName });
+    const user = await userModel.findOne({ username }); // Changed from userName to username
     if (!thriftGroup) {
       return res.status(404).send({
-        message: "Thrift group not found.",
+        message: "Thrift group  not found.",
+        status: false,
+      });
+    }
+    if (!user) {
+      return res.status(404).send({
+        message: "user not found. try signing up for a new account ",
         status: false,
       });
     }
@@ -572,10 +583,10 @@ const AddUserToGroup = async (req, res, next) => {
       });
     }
 
-    // Add the new user to the Members array
+    // Add the new user to the Members array and set verified to true
     thriftGroup.Members.push({
       username,
-      verified,
+      verified: true, // Set verification status to true
     });
 
     await thriftGroup.save();
@@ -593,6 +604,7 @@ const AddUserToGroup = async (req, res, next) => {
     });
   }
 };
+
 
 module.exports = {
   signup,

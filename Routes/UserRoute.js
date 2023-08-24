@@ -12,5 +12,4 @@ UserRouter.post("/getMembers", verifyUserToken, GetMembers);
 UserRouter.post("/addusers", verifyUserToken, AddUserToGroup);
 UserRouter.post("/InitiatePayment", InitiatePayment);
 UserRouter.get("/Notification", paymentNotifications);
-
 module.exports = UserRouter;
