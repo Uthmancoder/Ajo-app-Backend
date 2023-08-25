@@ -13,7 +13,11 @@ const ThriftSchema = new mongoose.Schema({
     {
       username: { type: String, trim: true, default : "" },
       verified : {type : Boolean, default:false},
-      payment : {type : Boolean, default:false},
+      payment : [
+        {
+          paid : {type : Boolean, default : false}
+        }
+      ]
     },
   ],
 }, {timestamps : true});

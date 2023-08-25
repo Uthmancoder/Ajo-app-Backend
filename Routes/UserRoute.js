@@ -12,4 +12,4 @@ UserRouter.post("/getMembers", verifyUserToken, GetMembers);
 UserRouter.post("/addusers", AddUserToGroup);
 UserRouter.post("/InitiatePayment", InitiatePayment);
 UserRouter.get("/Notification", paymentNotifications);
-module.exports = UserRouter;
+module.exports = UserRouter;                   

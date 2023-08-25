@@ -256,6 +256,25 @@ const CreateAThrift = async (req, res, next) => {
 
     // Create the new thrift group with the current timestamp
     const createdAt = new Date(); // Get the current date and time
+
+    // Initialize the members array with the creator and other members
+    const allMembers = [];
+    for (let i = 0; i < Members; i++) {
+      const paymentArray = [];
+      for (let j = 0; j < Members.length; j++) {
+        paymentArray.push({ paid: false });
+      }
+      allMembers.push({
+        username: "",
+        verified: false,
+        payment: paymentArray,
+      });
+    }
+
+    // Add the thrift creator as a member with verified set to true
+    allMembers[0].username = creatorUsername;
+    allMembers[0].verified = true;
+
     const newThrift = await ThriftModel.create({
       groupName,
       Amount,
@@ -265,23 +284,11 @@ const CreateAThrift = async (req, res, next) => {
       Total,
       image_url: imageFile, // Assuming you want to save the image URL in the database
       Wallet,
-      Members: [],
+      Members: allMembers,
       createdAt: createdAt, // Save the timestamp in the 'createdAt' field of the model
     });
 
-    // Add the thrift creator as a member with verified set to true
-    const creator = {
-      username: creatorUsername,
-      verified: true,
-      payment: false,
-    };
-    newThrift.Members.push(creator);
-
-    // If you want to set the creator verification immediately, you can do so here
-    newThrift.creatorUsername = creatorUsername;
-    newThrift.verified = true;
-    newThrift.payment = false;
-
+    // Save the new thrift group document
     await newThrift.save();
 
     const groupId = newThrift._id;
@@ -293,7 +300,7 @@ const CreateAThrift = async (req, res, next) => {
     return res.status(201).send({
       message: `${newThrift.groupName},group created successfully. we are so happy to have you on board You can kindly add more users to your group via the grouplink.`,
       status: true,
-      link: `http://localhost:3001/jointhrift`,
+      link: "http://localhost:3001/jointhrift",
       createdAt: createdAt.toISOString(), // Include the full timestamp if needed
       date: date, // Include the extracted date
       time: time, // Include the extracted time
@@ -450,35 +457,34 @@ const InitiatePayment = async (req, res, next) => {
 const paymentNotifications = async (req, res) => {
   try {
     const eventType = req.body.event;
-    if (eventType === 'payment.success') {
-  
+    if (eventType === "payment.success") {
       const { tx_ref, transaction_id, amount, currency, email } = req.body.data;
       // Verify payment and update wallet here
-      console.log(req.body.data)
+      console.log(req.body.data);
       const user = await userModel.findOne({ email: email });
-        console.log(user);
-        if (user) {
-          user.Wallet += amount;
-          await user.save();
-          return res.status(200).json({
-            success: true,
-            message: "Payment verified and wallet updated successfully",
-          });
-        } else {
-          return res.status(404).json({
-            success: false,
-            message: "User not found",
-          });
-        }
+      console.log(user);
+      if (user) {
+        user.Wallet += amount;
+        await user.save();
+        return res.status(200).json({
+          success: true,
+          message: "Payment verified and wallet updated successfully",
+        });
+      } else {
+        return res.status(404).json({
+          success: false,
+          message: "User not found",
+        });
+      }
 
-      console.log('Payment success:', req.body.data);
+      console.log("Payment success:", req.body.data);
 
       // Send a response indicating successful processing of the webhook
-      res.status(200).json({ message: 'Webhook received and processed' });
+      res.status(200).json({ message: "Webhook received and processed" });
     }
   } catch (error) {
-    console.error('Webhook error:', error);
-    res.status(500).json({ message: 'Error processing webhook' });
+    console.error("Webhook error:", error);
+    res.status(500).json({ message: "Error processing webhook" });
   }
 };
 
@@ -486,7 +492,7 @@ const paymentNotifications = async (req, res) => {
 // const getPayments = async (req, res) => {
 //   console.log("Request received at getPayments route");
 //   try {
-//     const { tx_ref, userEmail } = req.query; 
+//     const { tx_ref, userEmail } = req.query;
 //     console.log("tx_ref:", tx_ref);
 //     console.log("userMail", userEmail);
 
@@ -555,26 +561,31 @@ const paymentNotifications = async (req, res) => {
 const AddUserToGroup = async (req, res, next) => {
   try {
     const { username, groupname } = req.body;
+    console.log(req.body);
+
     // Find the thrift group based on the groupname
-    const thriftGroup = await ThriftModel.findOne({ groupname });
-    const user = await userModel.findOne({ username }); // Changed from userName to username
+    const thriftGroup = await ThriftModel.findOne({ groupName: groupname });
+    const user = await userModel.findOne({ username: username });
+
     if (!thriftGroup) {
       return res.status(404).send({
-        message: "Thrift group  not found.",
+        message: "Thrift group not found.",
         status: false,
       });
     }
+
     if (!user) {
       return res.status(404).send({
-        message: "user not found. try signing up for a new account ",
+        message: "User not found. Try signing up for a new account.",
         status: false,
       });
     }
 
     // Check if the user is already a member of the group
-    const isUserAlreadyMember = thriftGroup.Members.some(
+    const isUserAlreadyMember = thriftGroup.Members.find(
       (member) => member.username === username
     );
+
     if (isUserAlreadyMember) {
       return res.status(400).send({
         message: "User is already a member of the group.",
@@ -582,10 +593,17 @@ const AddUserToGroup = async (req, res, next) => {
       });
     }
 
-    // Add the new user to the Members array and set verified to true
+    // Initialize the payment array for the new user
+    const paymentArray = [];
+    for (let i = 0; i < thriftGroup.Members.length; i++) {
+      paymentArray.push({ paid: false });
+    }
+
+    // Add the new user to the Members array
     thriftGroup.Members.push({
-      username,
+      username: username,
       verified: true, // Set verification status to true
+      payment: paymentArray, // Set the payment status array
     });
 
     await thriftGroup.save();
