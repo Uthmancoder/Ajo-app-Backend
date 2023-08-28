@@ -330,8 +330,6 @@ const CreateAThrift = async (req, res, next) => {
   }
 };
 
-
-
 // querying my database to check for existing thrifts
 const FindExistingThrift = async (req, res, next) => {
   try {
@@ -418,7 +416,6 @@ const GetMembers = async (req, res, next) => {
   }
 };
 
-
 // Initiate  the  payment  process
 const InitiatePayment = async (req, res, next) => {
   const { email, amount, tx_ref, username } = req.body;
@@ -475,105 +472,59 @@ const InitiatePayment = async (req, res, next) => {
 const paymentNotifications = async (req, res) => {
   try {
     const eventType = req.body.event;
+    console.log(eventType)
     if (eventType === "payment.success") {
       const { tx_ref, transaction_id, amount, currency, email } = req.body.data;
-      // Verify payment and update wallet here
-      console.log(req.body.data);
-      const user = await userModel.findOne({ email: email });
-      console.log(user);
-      if (user) {
-        user.Wallet += amount;
-        await user.save();
-        return res.status(200).json({
-          success: true,
-          message: "Payment verified and wallet updated successfully",
-        });
+      const secretKey = process.env.FLW_SECRET;
+      // Verify payment with Flutterwave's API before updating wallet
+      // Make a request to Flutterwave's API to verify payment status
+      const response = await axios.get(
+        `https://api.flutterwave.com/v3/transactions/${transaction_id}/verify`,
+        {
+          headers: {
+            Authorization: `Bearer ${secretKey}`,
+          },
+        }
+      );
+
+      const paymentData = response.data.data;
+      const paymentStatus = paymentData.status;
+      const paymentAmount = paymentData.amount;
+      const paymentCurrency = paymentData.currency;
+
+      if (
+        paymentStatus === "successful" &&
+        paymentAmount === amount &&
+        paymentCurrency === currency
+      ) {
+        const user = await userModel.findOne({ email: email });
+
+        if (user) {
+          user.Wallet += amount;
+          await user.save();
+          console.log("Wallet updated for user:", user.email);
+          return res.status(200).json({
+            success: true,
+            message: "Payment verified and wallet updated successfully",
+          });
+        } else {
+          return res.status(404).json({
+            success: false,
+            message: "User not found",
+          });
+        }
       } else {
-        return res.status(404).json({
+        return res.status(400).json({
           success: false,
-          message: "User not found",
+          message: "Payment verification failed",
         });
       }
-
-      console.log("Payment success:", req.body.data);
-
-      // Send a response indicating successful processing of the webhook
-      res.status(200).json({ message: "Webhook received and processed" });
     }
   } catch (error) {
     console.error("Webhook error:", error);
     res.status(500).json({ message: "Error processing webhook" });
   }
 };
-
-// Get Response from flutterwave to update the wallet
-// const getPayments = async (req, res) => {
-//   console.log("Request received at getPayments route");
-//   try {
-//     const { tx_ref, userEmail } = req.query;
-//     console.log("tx_ref:", tx_ref);
-//     console.log("userMail", userEmail);
-
-//     // const FlutterwaveSecretKey = process.env.FLW_SECRET;
-
-//     // // Make a request to Flutterwave's API to verify the payment status
-//     // const response = await axios.get(
-//     //   `https://api.flutterwave.com/v3/transactions/${tx_ref}/verify`,
-//     //   {
-//     //     headers: {
-//     //       Authorization: `Bearer ${FlutterwaveSecretKey}`
-//     //     },
-//     //   }
-//     // );
-//     // const paymentData = response.data.data;
-//     // console.log(paymentData)
-//     // const paymentId = paymentData.data.id; //for Accessing the transaction_id
-//     // console.log(paymentId);
-
-//     if (req.query.status === "successful") {
-//       const transactionDetails = await Transaction.find({
-//         ref: req.query.tx_ref,
-//       });
-//       const response = await flw.Transaction.verify({
-//         id: req.query.transaction_id,
-//       });
-//       if (
-//         response.data.status === "successful" &&
-//         response.data.amount === transactionDetails.amount &&
-//         response.data.currency === "NGN"
-//       ) {
-//         // Success! Confirm the customer's payment
-//         const amountPaid = transactionDetails.amount;
-//         const user = await userModel.findOne({ email: userEmail });
-//         console.log(user);
-//         if (user) {
-//           user.Wallet += amountPaid;
-//           await user.save();
-//           return res.status(200).json({
-//             success: true,
-//             message: "Payment verified and wallet updated successfully",
-//           });
-//         } else {
-//           return res.status(404).json({
-//             success: false,
-//             message: "User not found",
-//           });
-//         }
-//       }
-//     } else {
-//       return res.status(400).json({
-//         success: false,
-//         message: "Payment was not successful",
-//       });
-//     }
-//   } catch (error) {
-//     console.error("Error verifying payment:", error);
-//     return res.status(500).json({
-//       success: false,
-//       message: "Error verifying payment",
-//     });
-//   }
-// };
 
 // Add a new user to existing thrift
 const AddUserToGroup = async (req, res, next) => {
@@ -622,6 +573,15 @@ const AddUserToGroup = async (req, res, next) => {
       username: username,
       verified: true, // Set verification status to true
       payment: paymentArray, // Set the payment status array
+    });
+
+    // Increase payment status for all users
+    const updatedPaymentArray = Array(thriftGroup.Members.length).fill({
+      paid: false,
+    });
+
+    thriftGroup.Members.forEach((member, index) => {
+      member.payment = updatedPaymentArray; // Update payment array for each member
     });
 
     await thriftGroup.save();
