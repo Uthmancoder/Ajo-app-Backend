@@ -15,7 +15,7 @@ const ThriftSchema = new mongoose.Schema({
       verified : {type : Boolean, default:false},
       payment : [
         {
-          paid : {type : Boolean, default : false}
+          paid : {type : Boolean}
         }
       ]
     },

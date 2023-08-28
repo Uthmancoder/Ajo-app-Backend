@@ -243,6 +243,7 @@ const CreateAThrift = async (req, res, next) => {
       Members,
       creatorUsername,
     } = req.body;
+    console.log(req.body);
 
     // Check if groupname exists
     const existingGroupName = await ThriftModel.findOne({ groupName });
@@ -259,21 +260,35 @@ const CreateAThrift = async (req, res, next) => {
 
     // Initialize the members array with the creator and other members
     const allMembers = [];
-    for (let i = 0; i < Members; i++) {
-      const paymentArray = [];
-      for (let j = 0; j < Members.length; j++) {
-        paymentArray.push({ paid: false });
+
+    if (Array.isArray(Members) && Members.length > 0) {
+      // Loop through the Members array and initialize paymentArray
+      for (let i = 0; i < Members.length; i++) {
+        const paymentArray = [{ paid: false }]; // Each member has a single payment object
+        allMembers.push({
+          username: Members[i].username || "",
+          verified: false,
+          payment: paymentArray,
+        });
       }
+      console.log("allmembers after loop :", allMembers);
+    } else {
+      // Initialize a default member with creatorUsername
       allMembers.push({
-        username: "",
-        verified: false,
-        payment: paymentArray,
+        username: creatorUsername || "",
+        verified: true,
+        payment: [{ paid: false }],
       });
     }
+
+    console.log("creatorUsername:", creatorUsername);
+    console.log("allMembers before username assignment:", allMembers);
 
     // Add the thrift creator as a member with verified set to true
     allMembers[0].username = creatorUsername;
     allMembers[0].verified = true;
+
+    console.log("allMembers after username assignment:", allMembers);
 
     const newThrift = await ThriftModel.create({
       groupName,
@@ -282,10 +297,10 @@ const CreateAThrift = async (req, res, next) => {
       interest,
       plan,
       Total,
-      image_url: imageFile, // Assuming you want to save the image URL in the database
+      image_url: imageFile,
       Wallet,
       Members: allMembers,
-      createdAt: createdAt, // Save the timestamp in the 'createdAt' field of the model
+      createdAt: createdAt,
     });
 
     // Save the new thrift group document
@@ -294,16 +309,16 @@ const CreateAThrift = async (req, res, next) => {
     const groupId = newThrift._id;
 
     // Extract the date and time separately
-    const date = createdAt.toLocaleDateString(); // Extract the date as a string (e.g., "MM/DD/YYYY")
-    const time = createdAt.toLocaleTimeString(); // Extract the time as a string (e.g., "HH:MM:SS AM/PM")
+    const date = createdAt.toLocaleDateString();
+    const time = createdAt.toLocaleTimeString();
 
     return res.status(201).send({
-      message: `${newThrift.groupName},group created successfully. we are so happy to have you on board You can kindly add more users to your group via the grouplink.`,
+      message: `${newThrift.groupName}, group created successfully. We are so happy to have you on board. You can kindly add more users to your group via the group link.`,
       status: true,
       link: "http://localhost:3001/jointhrift",
-      createdAt: createdAt.toISOString(), // Include the full timestamp if needed
-      date: date, // Include the extracted date
-      time: time, // Include the extracted time
+      createdAt: createdAt.toISOString(),
+      date: date,
+      time: time,
     });
   } catch (error) {
     console.log("Internal server error", error);
@@ -314,6 +329,8 @@ const CreateAThrift = async (req, res, next) => {
     });
   }
 };
+
+
 
 // querying my database to check for existing thrifts
 const FindExistingThrift = async (req, res, next) => {
@@ -367,7 +384,7 @@ const GetMembers = async (req, res, next) => {
       const groupMembers = thriftGroup.Members.map((member) => {
         return {
           username: member.username,
-          payment: member.payment,
+          payments: member.payment, // Change to "payments" to reflect the array of payments
         };
       });
       const plan = thriftGroup.plan;
@@ -400,6 +417,7 @@ const GetMembers = async (req, res, next) => {
     });
   }
 };
+
 
 // Initiate  the  payment  process
 const InitiatePayment = async (req, res, next) => {
@@ -621,7 +639,6 @@ const AddUserToGroup = async (req, res, next) => {
     });
   }
 };
-
 
 module.exports = {
   signup,
