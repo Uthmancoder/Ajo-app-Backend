@@ -13,8 +13,16 @@ const axios = require("axios");
 // sign up for a new account
 const signup = async (req, res, next) => {
   try {
-    const { firstname, lastname, username, email, password, confirmPassword } =
-      req.body;
+    const {
+      firstname,
+      lastname,
+      username,
+      email,
+      password,
+      confirmPassword,
+      image,
+    } = req.body;
+
     if (
       !firstname ||
       !lastname ||
@@ -28,7 +36,7 @@ const signup = async (req, res, next) => {
         status: false,
       });
     }
-
+    console.log(req.body);
     const existingUser = await userModel.findOne({ email });
     const usernameExist = await userModel.findOne({ username });
 
@@ -51,6 +59,7 @@ const signup = async (req, res, next) => {
       email,
       password: hash,
       confirmPassword,
+      image,
     });
 
     sendMail(email, username); // Make sure the sendMail function is imported
@@ -70,7 +79,6 @@ const signin = async (req, res, next) => {
   try {
     const { username, email, password } = req.body;
     // console.log(password);
-
     const result = await userModel.findOne({
       $or: [{ username: username }, { email: email }],
     });
@@ -213,9 +221,12 @@ const SaveCurrentUser = async (req, res, next) => {
       user: {
         username: user.username,
         email: user.email,
+        firstname: user.firstname, // Include the firstname field
+        lastname: user.lastname, // Include the lastname field
         wallet: user.Wallet,
         date: currentDate.toDateString(),
         time: timeOnly,
+        image: user.image, // Use user.image for the image field
         // Include other user information as needed
       },
     });
@@ -225,6 +236,84 @@ const SaveCurrentUser = async (req, res, next) => {
       message: "Internal server error",
       status: false,
     });
+  }
+};
+
+// editing userdata
+const EditProfile = async (req, res, next) => {
+  try {
+    const { firstname, lastname, username, email, image } = req.body;
+    console.log(req.body);
+
+    // Find the user based on the provided username
+    const getuser = await userModel.findOne({ email });
+
+    if (!getuser) {
+      return res.status(400).send({ message: "User not found", status: false });
+    }
+
+    // Update the user's profile information
+    getuser.firstname = firstname;
+    getuser.lastname = lastname;
+    getuser.username = username;
+    getuser.email = email;
+    getuser.image = image;
+
+    // Save the updated user profile
+    await getuser.save();
+
+    return res
+      .status(200)
+      .send({ message: "Profile updated successfully", status: true });
+  } catch (error) {
+    // Handle any errors that might occur during the update process
+    console.error("Error updating profile:", error);
+    return res
+      .status(500)
+      .send({ message: "An error occurred", status: false });
+  }
+};
+
+// changing password
+const changepassword = async (req, res, next) => {
+  try {
+    const { oldpassword, newPassword, email } = req.body;
+
+    // Find the user by their email
+    const user = await userModel.findOne({ email });
+
+    if (!user) {
+      return res.status(400).send({ message: "User not found", status: false });
+    }
+
+    // Compare the old password with the stored hashed password
+    const isOldPasswordCorrect = await argon2.verify(
+      user.password,
+      oldpassword
+    );
+
+    if (!isOldPasswordCorrect) {
+      return res
+        .status(400)
+        .send({ message: "Old password is incorrect", status: false });
+    }
+
+    // Hash the new password
+    const hashedNewPassword = await argon2.hash(newPassword);
+
+    // Update the user's password in the database
+    user.password = hashedNewPassword;
+    await user.save();
+
+    return res
+      .status(200)
+      .send({ message: "Password changed successfully", status: true });
+  } catch (error) {
+    // Handle any errors that might occur during the password change process
+    console.error("Error changing password:", error);
+    return res
+      .status(500)
+      .send({ message: "An error occurred", status: false });
   }
 };
 
@@ -455,76 +544,164 @@ const InitiatePayment = async (req, res, next) => {
     const transactionId = flutterwaveResponse.data.id; //for Accessing the transaction_id
     console.log(transactionId);
 
-    return res.status(200).json({
-      success: true,
-      message: "Payment initiated successfully",
-      flutterwaveResponse,
-    });
+    // Step 2: Check Payment Status
+    const paymentStatus = await checkPaymentStatus(transactionId);
+
+    if (paymentStatus === "successful") {
+      // Step 3: Verify Payment Manually
+      const verifyResponse = await verifyPaymentManually(transactionId);
+
+      return res.status(200).json({
+        success: true,
+        message: "Payment initiated, status checked, and verified successfully",
+        verifyResponse,
+      });
+    } else {
+      return res.status(400).json({
+        success: false,
+        message: "Payment verification failed",
+      });
+    }
   } catch (err) {
     console.log("Error:", err.code);
     console.log("Error Response:", err.response.data);
     return res
       .status(500)
-      .json({ success: false, message: "Payment initiation failed" });
+      .json({
+        success: false,
+        message: "Payment initiation  or verification failed",
+      });
+  }
+};
+const checkPaymentStatus = async (transactionId) => {
+  const secretKey = process.env.FLW_SECRET;
+
+  try {
+    const response = await axios.get(
+      `https://api.flutterwave.com/v3/transactions/${transactionId}/verify`,
+      {
+        headers: {
+          Authorization: `Bearer ${secretKey}`,
+        },
+      }
+    );
+
+    const paymentData = response.data.data;
+    const paymentStatus = paymentData.status;
+
+    return paymentStatus;
+  } catch (error) {
+    console.error("Error checking payment status:", error);
+    return "error";
   }
 };
 
-const paymentNotifications = async (req, res) => {
-  try {
-    const eventType = req.body.event;
-    console.log(eventType)
-    if (eventType === "payment.success") {
-      const { tx_ref, transaction_id, amount, currency, email } = req.body.data;
-      const secretKey = process.env.FLW_SECRET;
-      // Verify payment with Flutterwave's API before updating wallet
-      // Make a request to Flutterwave's API to verify payment status
-      const response = await axios.get(
-        `https://api.flutterwave.com/v3/transactions/${transaction_id}/verify`,
-        {
-          headers: {
-            Authorization: `Bearer ${secretKey}`,
-          },
-        }
-      );
+// In your controller or route
+const verifyPaymentManually = async (req, res) => {
+  const { transaction_id } = req.body; // Get the transaction ID
 
-      const paymentData = response.data.data;
-      const paymentStatus = paymentData.status;
-      const paymentAmount = paymentData.amount;
-      const paymentCurrency = paymentData.currency;
+  const paymentStatus = await checkPaymentStatus(transaction_id);
 
-      if (
-        paymentStatus === "successful" &&
-        paymentAmount === amount &&
-        paymentCurrency === currency
-      ) {
-        const user = await userModel.findOne({ email: email });
+  if (paymentStatus === "successful") {
+    const paymentData = paymentStatus.data.data; // Access payment data
+    const paymentAmount = paymentData.amount; // Get the amount paid
 
-        if (user) {
-          user.Wallet += amount;
-          await user.save();
-          console.log("Wallet updated for user:", user.email);
-          return res.status(200).json({
-            success: true,
-            message: "Payment verified and wallet updated successfully",
-          });
-        } else {
-          return res.status(404).json({
-            success: false,
-            message: "User not found",
-          });
-        }
+    // Update the user's wallet with the payment amount
+    try {
+      const user = await userModel.findOne({
+        email: paymentData.customer.email,
+      });
+
+      if (user) {
+        user.Wallet += paymentAmount;
+        await user.save();
+        console.log("Wallet updated for user:", user.email);
+        return res.status(200).json({
+          success: true,
+          message: "Payment verified and wallet updated successfully",
+        });
       } else {
-        return res.status(400).json({
+        return res.status(404).json({
           success: false,
-          message: "Payment verification failed",
+          message: "User not found",
         });
       }
+    } catch (error) {
+      console.error("Error updating wallet:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Error updating user's wallet",
+      });
     }
-  } catch (error) {
-    console.error("Webhook error:", error);
-    res.status(500).json({ message: "Error processing webhook" });
+  } else if (paymentStatus === "error") {
+    return res.status(500).json({
+      success: false,
+      message: "Error occurred while verifying payment",
+    });
+  } else {
+    return res.status(400).json({
+      success: false,
+      message: "Payment verification failed",
+    });
   }
 };
+
+// const paymentNotifications = async (req, res) => {
+//   try {
+//     const eventType = req.body.event;
+//     console.log(eventType)
+//     if (eventType === "payment.success") {
+//       const { tx_ref, transaction_id, amount, currency, email } = req.body.data;
+//       const secretKey = process.env.FLW_SECRET;
+//       // Verify payment with Flutterwave's API before updating wallet
+//       // Make a request to Flutterwave's API to verify payment status
+//       const response = await axios.get(
+//         `https://api.flutterwave.com/v3/transactions/${transaction_id}/verify`,
+//         {
+//           headers: {
+//             Authorization: `Bearer ${secretKey}`,
+//           },
+//         }
+//       );
+
+//       const paymentData = response.data.data;
+//       const paymentStatus = paymentData.status;
+//       const paymentAmount = paymentData.amount;
+//       const paymentCurrency = paymentData.currency;
+
+//       if (
+//         paymentStatus === "successful" &&
+//         paymentAmount === amount &&
+//         paymentCurrency === currency
+//       ) {
+//         const user = await userModel.findOne({ email: email });
+
+//         if (user) {
+//           user.Wallet += amount;
+//           await user.save();
+//           console.log("Wallet updated for user:", user.email);
+//           return res.status(200).json({
+//             success: true,
+//             message: "Payment verified and wallet updated successfully",
+//           });
+//         } else {
+//           return res.status(404).json({
+//             success: false,
+//             message: "User not found",
+//           });
+//         }
+//       } else {
+//         return res.status(400).json({
+//           success: false,
+//           message: "Payment verification failed",
+//         });
+//       }
+//     }
+//   } catch (error) {
+//     console.error("Webhook error:", error);
+//     res.status(500).json({ message: "Error processing webhook" });
+//   }
+// };
 
 // Add a new user to existing thrift
 const AddUserToGroup = async (req, res, next) => {
@@ -610,5 +787,7 @@ module.exports = {
   GetMembers,
   AddUserToGroup,
   InitiatePayment,
-  paymentNotifications,
+  EditProfile,
+  changepassword,
+  verifyPaymentManually
 };

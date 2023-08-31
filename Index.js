@@ -21,7 +21,7 @@ app.use("/user", UserRouter);
 
 
 const uri = process.env.MONGO_URL;
-const connect = () => {
+const connectWithRetry = () => {
   mongoose.set("strictQuery", false);
 
   mongoose.connect(uri, {
@@ -40,11 +40,13 @@ const connect = () => {
   });
 
   db.on("disconnected", () => {
-    console.log("Database disconnected");
+    console.log("Database disconnected. Reconnecting...");
+    connectWithRetry(); // Attempt to reconnect
   });
 };
 
-connect();
+connectWithRetry();
+
 
 app.use(ErrorHandler);
 
