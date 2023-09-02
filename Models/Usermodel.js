@@ -8,21 +8,11 @@ const userSchema = new mongoose.Schema({
     image : {type : String},
     email : {type :String, required : true, trim :true, unique : true},
     password : {type :String, required : true, trim :true, unique : true},
-    Wallet : {type :Number, default: 0.00},
+    Wallet : {type :Number, default: 0},
     lastLoginTime: {type: Date},
 }, {timestamps : true});
 
-// userSchema.pre("save", function (next){
-//     let saltRound = 10
-//     if (this.password !== undefined) {
-//       bcryptjs.hash(this.password, saltRound).then((hashedPassword)=>{
-//           this.password = hashedPassword
-//           next();
-//       }).catch((err)=>{
-//           console.log(err);
-//       })
-//     }  
-//   })
+
     
 
   const userModel = mongoose.model.user_tbs || mongoose.model("user_tbs", userSchema);

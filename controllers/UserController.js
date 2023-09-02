@@ -8,6 +8,7 @@ const { sendMail } = require("../Config/MyMailer");
 const cloudinary = require("cloudinary").v2;
 const { generateToken, verifyToken } = require("../Services/SessionService");
 const axios = require("axios");
+const { response } = require("express");
 // const { default: Email } = require("next-auth/providers/email");
 
 // sign up for a new account
@@ -505,203 +506,45 @@ const GetMembers = async (req, res, next) => {
   }
 };
 
-// Initiate  the  payment  process
-const InitiatePayment = async (req, res, next) => {
-  const { email, amount, tx_ref, username } = req.body;
-  console.log(req.body);
-
-  const FlutterwaveSecretKey = process.env.FLW_SECRET;
-
+const UpdateUsersWallet = async (req, res, next) => {
+  const { username, amount } = req.body;
+  console.log("Username:", username);
+  console.log("Amount:", amount);
   try {
-    const response = await axios.post(
-      "https://api.flutterwave.com/v3/payments",
-      {
-        tx_ref: tx_ref,
-        amount: amount,
-        currency: "NGN",
-        redirect_url: "http://localhost:3001/account",
-        customer: {
-          email: email,
-          username: username,
-        },
-        customizations: {
-          title: "Funding Wallet",
-          logo: "https://www.shutterstock.com/image-vector/ultimate-text-effect-abstract-modern-600w-2075952592.jpg",
-        },
-        merchant: {
-          name: username, // Set the merchant name to the contributor's username
-        },
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${FlutterwaveSecretKey}`,
-        },
-      }
-    );
-
-    console.log("Flutterwave Response:", response.data);
-    const flutterwaveResponse = response.data;
-    const transactionId = flutterwaveResponse.data.id; //for Accessing the transaction_id
-    console.log(transactionId);
-
-    // Step 2: Check Payment Status
-    const paymentStatus = await checkPaymentStatus(transactionId);
-
-    if (paymentStatus === "successful") {
-      // Step 3: Verify Payment Manually
-      const verifyResponse = await verifyPaymentManually(transactionId);
-
-      return res.status(200).json({
-        success: true,
-        message: "Payment initiated, status checked, and verified successfully",
-        verifyResponse,
-      });
-    } else {
-      return res.status(400).json({
-        success: false,
-        message: "Payment verification failed",
-      });
+    const user = await userModel.findOne({ username });
+    console.log(user);
+    if (!user) {
+      return res
+        .status(404)
+        .json({ message: "User not found", success: false });
     }
-  } catch (err) {
-    console.log("Error:", err.code);
-    console.log("Error Response:", err.response.data);
-    return res
-      .status(500)
-      .json({
-        success: false,
-        message: "Payment initiation  or verification failed",
-      });
-  }
-};
-const checkPaymentStatus = async (transactionId) => {
-  const secretKey = process.env.FLW_SECRET;
 
-  try {
-    const response = await axios.get(
-      `https://api.flutterwave.com/v3/transactions/${transactionId}/verify`,
-      {
-        headers: {
-          Authorization: `Bearer ${secretKey}`,
-        },
-      }
-    );
+    // Before updating the wallet
+    console.log("Current Wallet Balance:", user.Wallet);
 
-    const paymentData = response.data.data;
-    const paymentStatus = paymentData.status;
+    // Update the user's wallet
+   // Update the user's wallet
+user.Wallet = parseFloat(user.Wallet) + parseFloat(amount);
+console.log("New Wallet Balance:", user.Wallet);
 
-    return paymentStatus;
+
+    // After saving the user
+    await user.save();
+
+    console.log("Wallet updated for user:", user.email);
+
+    return res.status(200).json({
+      success: true,
+      message: "Payment verified and wallet updated successfully",
+    });
   } catch (error) {
-    console.error("Error checking payment status:", error);
-    return "error";
-  }
-};
-
-// In your controller or route
-const verifyPaymentManually = async (req, res) => {
-  const { transaction_id } = req.body; // Get the transaction ID
-
-  const paymentStatus = await checkPaymentStatus(transaction_id);
-
-  if (paymentStatus === "successful") {
-    const paymentData = paymentStatus.data.data; // Access payment data
-    const paymentAmount = paymentData.amount; // Get the amount paid
-
-    // Update the user's wallet with the payment amount
-    try {
-      const user = await userModel.findOne({
-        email: paymentData.customer.email,
-      });
-
-      if (user) {
-        user.Wallet += paymentAmount;
-        await user.save();
-        console.log("Wallet updated for user:", user.email);
-        return res.status(200).json({
-          success: true,
-          message: "Payment verified and wallet updated successfully",
-        });
-      } else {
-        return res.status(404).json({
-          success: false,
-          message: "User not found",
-        });
-      }
-    } catch (error) {
-      console.error("Error updating wallet:", error);
-      return res.status(500).json({
-        success: false,
-        message: "Error updating user's wallet",
-      });
-    }
-  } else if (paymentStatus === "error") {
+    console.error("Error:", error);
     return res.status(500).json({
       success: false,
-      message: "Error occurred while verifying payment",
-    });
-  } else {
-    return res.status(400).json({
-      success: false,
-      message: "Payment verification failed",
+      message: "Error updating user's wallet",
     });
   }
 };
-
-// const paymentNotifications = async (req, res) => {
-//   try {
-//     const eventType = req.body.event;
-//     console.log(eventType)
-//     if (eventType === "payment.success") {
-//       const { tx_ref, transaction_id, amount, currency, email } = req.body.data;
-//       const secretKey = process.env.FLW_SECRET;
-//       // Verify payment with Flutterwave's API before updating wallet
-//       // Make a request to Flutterwave's API to verify payment status
-//       const response = await axios.get(
-//         `https://api.flutterwave.com/v3/transactions/${transaction_id}/verify`,
-//         {
-//           headers: {
-//             Authorization: `Bearer ${secretKey}`,
-//           },
-//         }
-//       );
-
-//       const paymentData = response.data.data;
-//       const paymentStatus = paymentData.status;
-//       const paymentAmount = paymentData.amount;
-//       const paymentCurrency = paymentData.currency;
-
-//       if (
-//         paymentStatus === "successful" &&
-//         paymentAmount === amount &&
-//         paymentCurrency === currency
-//       ) {
-//         const user = await userModel.findOne({ email: email });
-
-//         if (user) {
-//           user.Wallet += amount;
-//           await user.save();
-//           console.log("Wallet updated for user:", user.email);
-//           return res.status(200).json({
-//             success: true,
-//             message: "Payment verified and wallet updated successfully",
-//           });
-//         } else {
-//           return res.status(404).json({
-//             success: false,
-//             message: "User not found",
-//           });
-//         }
-//       } else {
-//         return res.status(400).json({
-//           success: false,
-//           message: "Payment verification failed",
-//         });
-//       }
-//     }
-//   } catch (error) {
-//     console.error("Webhook error:", error);
-//     res.status(500).json({ message: "Error processing webhook" });
-//   }
-// };
 
 // Add a new user to existing thrift
 const AddUserToGroup = async (req, res, next) => {
@@ -786,8 +629,7 @@ module.exports = {
   FindExistingThrift,
   GetMembers,
   AddUserToGroup,
-  InitiatePayment,
   EditProfile,
   changepassword,
-  verifyPaymentManually
+  UpdateUsersWallet,
 };
