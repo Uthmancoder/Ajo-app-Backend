@@ -1,6 +1,6 @@
 const express = require("express");
 const UserRouter = express.Router();
-const { signup, signin, verifyUserToken,SaveCurrentUser, CreateAThrift, FindExistingThrift, GetMembers, AddUserToGroup, EditProfile, changepassword, UpdateUsersWallet} = require("../controllers/UserController");
+const { signup, signin, verifyUserToken,SaveCurrentUser, CreateAThrift, FindExistingThrift, GetMembers, AddUserToGroup, EditProfile, changepassword, UpdateUsersWallet,PayThrift} = require("../controllers/UserController");
 // paymentNotificationsonst isAuthenticated = require("../MiddleWares/AuthenticateUser");
 
 UserRouter.post("/signup", signup);
@@ -14,4 +14,5 @@ UserRouter.post("/addusers", AddUserToGroup);
 UserRouter.post("/updateWallet", UpdateUsersWallet); 
 UserRouter.post("/editProfile", EditProfile);
 UserRouter.post("/changePassword", changepassword);
+UserRouter.post("/paythrift", PayThrift);
 module.exports = UserRouter;    

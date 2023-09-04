@@ -488,6 +488,7 @@ const GetMembers = async (req, res, next) => {
         Amount: thriftGroup.Amount,
         plan: thriftGroup.plan,
         Total: thriftGroup.Total,
+        wallet : thriftGroup.Wallet
       });
     } else {
       return res.status(404).json({
@@ -620,6 +621,49 @@ const AddUserToGroup = async (req, res, next) => {
   }
 };
 
+
+const PayThrift = async (req, res, next) => {
+  const { username, amount, groupName } = req.body;
+
+  try {
+    const getUser = await userModel.findOne({ username });
+
+    if (!getUser) {
+      return res.status(400).send({ message: "User Not Found, Try Signing in for a new account" });
+    }
+
+    const thriftGroup = await ThriftModel.findOne({ groupName });
+
+    if (!thriftGroup) {
+      return res.status(401).send({ message: "Thrift-group not found" });
+    }
+
+    const userWallet = getUser.Wallet;
+    const groupWallet = thriftGroup.Wallet;
+
+    // Check if the user has enough balance
+    if (userWallet < amount) {
+      return res.status(400).send({ message: "Insufficient balance" });
+    }
+
+    // Deduct the specified amount from the user's wallet
+    getUser.Wallet -= amount;
+
+    // Add the deducted amount to the group's wallet
+    thriftGroup.Wallet += amount;
+
+    // Save changes to user and group documents in the database
+    await getUser.save();
+    await thriftGroup.save();
+
+    return res.status(200).send({ message: "Payment Made  successfully" });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).send({ message: "Internal Server Error" });
+  }
+};
+
+
 module.exports = {
   signup,
   signin,
@@ -632,4 +676,5 @@ module.exports = {
   EditProfile,
   changepassword,
   UpdateUsersWallet,
+  PayThrift
 };

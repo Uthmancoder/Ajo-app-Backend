@@ -23,5 +23,5 @@ const ThriftSchema = new mongoose.Schema({
 }, {timestamps : true});
 
 const ThriftModel =
-  mongoose.model.Thrift_tbs || mongoose.model("Thrift_tbs", ThriftSchema);
+  mongoose.model.Thrift_tbs || mongoose.model("Thrift_tbs", ThriftSchema);    
 module.exports = ThriftModel;
