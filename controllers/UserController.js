@@ -620,6 +620,7 @@ const AddUserToGroup = async (req, res, next) => {
   }
 };
 
+
 const PayThrift = async (req, res, next) => {
   const { username, amount, groupName, amountPerThrift } = req.body;
 
@@ -659,14 +660,19 @@ const PayThrift = async (req, res, next) => {
     // Add the deducted amount to the group's wallet
     thriftGroup.Wallet = groupWallet + parseFloat(amount);
 
-    // Find the user within the thriftGroup.Members array
+    // Find the user's index within the thriftGroup.Members array
     const memberIndex = thriftGroup.Members.findIndex(
       (member) => member.username === username
     );
 
     if (memberIndex !== -1) {
-      // Update the user's payment status
-      thriftGroup.Members[memberIndex].payment.push({ paid: true });
+      // Find the user's payment array
+      const userPaymentArray = thriftGroup.Members[memberIndex].payment;
+
+      // Update all payment objects in the user's payment array to true
+      userPaymentArray.forEach((paymentObject) => {
+        paymentObject.paid = true;
+      });
     }
 
     // Save changes to user and group documents in the database
