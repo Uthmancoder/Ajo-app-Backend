@@ -488,7 +488,7 @@ const GetMembers = async (req, res, next) => {
         Amount: thriftGroup.Amount,
         plan: thriftGroup.plan,
         Total: thriftGroup.Total,
-        wallet : thriftGroup.Wallet
+        wallet: thriftGroup.Wallet,
       });
     } else {
       return res.status(404).json({
@@ -524,10 +524,9 @@ const UpdateUsersWallet = async (req, res, next) => {
     console.log("Current Wallet Balance:", user.Wallet);
 
     // Update the user's wallet
-   // Update the user's wallet
-user.Wallet = parseFloat(user.Wallet) + parseFloat(amount);
-console.log("New Wallet Balance:", user.Wallet);
-
+    // Update the user's wallet
+    user.Wallet = parseFloat(user.Wallet) + parseFloat(amount);
+    console.log("New Wallet Balance:", user.Wallet);
 
     // After saving the user
     await user.save();
@@ -621,47 +620,68 @@ const AddUserToGroup = async (req, res, next) => {
   }
 };
 
-
 const PayThrift = async (req, res, next) => {
-  const { username, amount, groupName } = req.body;
+  const { username, amount, groupName, amountPerThrift } = req.body;
 
   try {
+    // Find the user and thrift group
     const getUser = await userModel.findOne({ username });
+    const thriftGroup = await ThriftModel.findOne({ groupName });
 
     if (!getUser) {
-      return res.status(400).send({ message: "User Not Found, Try Signing in for a new account" });
+      return res
+        .status(400)
+        .send({ message: "User Not Found, Try Signing in for a new account" });
     }
-
-    const thriftGroup = await ThriftModel.findOne({ groupName });
 
     if (!thriftGroup) {
       return res.status(401).send({ message: "Thrift-group not found" });
     }
 
-    const userWallet = getUser.Wallet;
-    const groupWallet = thriftGroup.Wallet;
+    const userWallet = parseFloat(getUser.Wallet); // Convert to float
+    const groupWallet = parseFloat(thriftGroup.Wallet); // Convert to float
 
     // Check if the user has enough balance
     if (userWallet < amount) {
       return res.status(400).send({ message: "Insufficient balance" });
     }
 
+    // Check if the amount paid is less than the amountPerThrift
+    if (parseFloat(amount) < parseFloat(amountPerThrift)) {
+      return res
+        .status(400)
+        .send({ message: "The amount you're trying to pay is less than the required amount" });
+    }
+
     // Deduct the specified amount from the user's wallet
-    getUser.Wallet -= amount;
+    getUser.Wallet = userWallet - parseFloat(amount);
 
     // Add the deducted amount to the group's wallet
-    thriftGroup.Wallet += amount;
+    thriftGroup.Wallet = groupWallet + parseFloat(amount);
+
+    // Find the user within the thriftGroup.Members array
+    const memberIndex = thriftGroup.Members.findIndex(
+      (member) => member.username === username
+    );
+
+    if (memberIndex !== -1) {
+      // Update the user's payment status
+      thriftGroup.Members[memberIndex].payment.push({ paid: true });
+    }
 
     // Save changes to user and group documents in the database
     await getUser.save();
     await thriftGroup.save();
 
-    return res.status(200).send({ message: "Payment Made  successfully" });
+    console.log("User Payment Status Updated:", thriftGroup.Members[memberIndex].payment);
+
+    return res.status(200).send({ message: "Payment Made successfully" });
   } catch (error) {
     console.error(error);
     return res.status(500).send({ message: "Internal Server Error" });
   }
 };
+
 
 
 module.exports = {
@@ -676,5 +696,5 @@ module.exports = {
   EditProfile,
   changepassword,
   UpdateUsersWallet,
-  PayThrift
+  PayThrift,
 };
