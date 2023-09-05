@@ -582,6 +582,14 @@ const AddUserToGroup = async (req, res, next) => {
       });
     }
 
+    // Check if the group is completed
+    if (thriftGroup.Members.length === thriftGroup.RequiredUsers) {
+      return res.status(400).send({
+        message: "Thrift group Completed, try joining a new group",
+        status: false,
+      });
+    }
+
     // Initialize the payment array for the new user
     const paymentArray = [];
     for (let i = 0; i < thriftGroup.Members.length; i++) {
@@ -620,7 +628,7 @@ const AddUserToGroup = async (req, res, next) => {
   }
 };
 
-
+// Paying of thrifts to each group
 const PayThrift = async (req, res, next) => {
   const { username, amount, groupName, amountPerThrift } = req.body;
 
@@ -642,6 +650,16 @@ const PayThrift = async (req, res, next) => {
     const userWallet = parseFloat(getUser.Wallet); // Convert to float
     const groupWallet = parseFloat(thriftGroup.Wallet); // Convert to float
 
+    // Check if all users in the group are completed
+    // Check if the group is completed
+    if (thriftGroup.Members.length !== thriftGroup.RequiredUsers) {
+      return res.status(400).send({
+        message:
+          "Thrift group has to be completed before payment could be made.",
+        status: false,
+      });
+    }
+
     // Check if the user has enough balance
     if (userWallet < amount) {
       return res.status(400).send({ message: "Insufficient balance" });
@@ -649,9 +667,10 @@ const PayThrift = async (req, res, next) => {
 
     // Check if the amount paid is less than the amountPerThrift
     if (parseFloat(amount) < parseFloat(amountPerThrift)) {
-      return res
-        .status(400)
-        .send({ message: "The amount you're trying to pay is less than the required amount" });
+      return res.status(400).send({
+        message:
+          "The amount you're trying to pay is less than the required amount",
+      });
     }
 
     // Deduct the specified amount from the user's wallet
@@ -669,17 +688,25 @@ const PayThrift = async (req, res, next) => {
       // Find the user's payment array
       const userPaymentArray = thriftGroup.Members[memberIndex].payment;
 
-      // Update all payment objects in the user's payment array to true
-      userPaymentArray.forEach((paymentObject) => {
-        paymentObject.paid = true;
-      });
+      // Find the first payment object in the user's payment array with paid set to false
+      const firstUnpaidIndex = userPaymentArray.findIndex(
+        (paymentObject) => !paymentObject.paid
+      );
+
+      // If an unpaid index is found, set it to true
+      if (firstUnpaidIndex !== -1) {
+        userPaymentArray[firstUnpaidIndex].paid = true;
+      }
     }
 
     // Save changes to user and group documents in the database
     await getUser.save();
     await thriftGroup.save();
 
-    console.log("User Payment Status Updated:", thriftGroup.Members[memberIndex].payment);
+    console.log(
+      "User Payment Status Updated:",
+      thriftGroup.Members[memberIndex].payment
+    );
 
     return res.status(200).send({ message: "Payment Made successfully" });
   } catch (error) {
@@ -687,6 +714,62 @@ const PayThrift = async (req, res, next) => {
     return res.status(500).send({ message: "Internal Server Error" });
   }
 };
+
+
+// Withdrawing money from the group wallet
+const WithdrawFunds = async (req, res, next) => {
+  try {
+    const { Withdrawer, username, groupName, amount } = req.body;
+
+    console.log(req.body);
+
+    const user = await userModel.findOne({ username });
+
+    if (!user) {
+      return res.status(400).send({ message: "User not found" });
+    }
+
+    const thriftGroup = await ThriftModel.findOne({ groupName });
+
+    if (!thriftGroup) {
+      return res.status(401).send({ message: "Thrift group not found" });
+    }
+
+    if (Withdrawer !== username) {
+      return res
+        .status(400)
+        .send({
+          message: "It's not your turn to withdraw, kindly wait for your time to withdraw",
+        });
+    }
+
+    // Subtract the amount from the thrift group's wallet
+    thriftGroup.Wallet -= amount;
+
+    // Add the amount to the user's wallet
+    user.Wallet += amount;
+
+    // Set payment status to false for all group members
+    thriftGroup.Members.forEach((groupUser) => {
+      if (Array.isArray(groupUser.payments)) {
+        groupUser.payment = groupUser.payments.map((payment) => ({
+          ...payment,
+          paid: false,
+        }));
+      }
+    });
+
+    // Save the updated thrift group and user data
+    await thriftGroup.save();
+    await user.save();
+
+    res.status(200).send({ message: "Withdrawal successful" });
+  } catch (error) {
+    console.error(error);
+    res.status(500).send({ message: "Internal Server Error" });
+  }
+};
+
 
 
 
@@ -703,4 +786,5 @@ module.exports = {
   changepassword,
   UpdateUsersWallet,
   PayThrift,
+  WithdrawFunds
 };

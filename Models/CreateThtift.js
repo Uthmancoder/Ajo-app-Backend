@@ -25,3 +25,4 @@ const ThriftSchema = new mongoose.Schema({
 const ThriftModel =
   mongoose.model.Thrift_tbs || mongoose.model("Thrift_tbs", ThriftSchema);    
 module.exports = ThriftModel;
+
