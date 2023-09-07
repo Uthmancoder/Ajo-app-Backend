@@ -265,7 +265,7 @@ const EditProfile = async (req, res, next) => {
 
     return res
       .status(200)
-      .send({ message: "Profile updated successfully", status: true });
+      .send({ message: "You just updated your Profile we're glad With you connecting with us", status: true });
   } catch (error) {
     // Handle any errors that might occur during the update process
     console.error("Error updating profile:", error);
@@ -308,7 +308,7 @@ const changepassword = async (req, res, next) => {
 
     return res
       .status(200)
-      .send({ message: "Password changed successfully", status: true });
+      .send({ message: "Password Updated successfully", status: true });
   } catch (error) {
     // Handle any errors that might occur during the password change process
     console.error("Error changing password:", error);
@@ -507,6 +507,8 @@ const GetMembers = async (req, res, next) => {
   }
 };
 
+
+// Funding user's wallet
 const UpdateUsersWallet = async (req, res, next) => {
   const { username, amount } = req.body;
   console.log("Username:", username);
@@ -535,7 +537,7 @@ const UpdateUsersWallet = async (req, res, next) => {
 
     return res.status(200).json({
       success: true,
-      message: "Payment verified and wallet updated successfully",
+      message: `Payment verified and wallet updated successfully, an amount of ${amount} has been added to your wallet`,
     });
   } catch (error) {
     console.error("Error:", error);
@@ -673,6 +675,21 @@ const PayThrift = async (req, res, next) => {
       });
     }
 
+    if (parseFloat(amount) > parseFloat(amountPerThrift)) {
+      return res.status(400).send({
+        message:
+          "The amount you're trying to pay is More than the required amount",
+      });
+    }
+
+    if (thriftGroup.Members.length !== thriftGroup.Members.payment.length) {
+      return res.status(400).send({
+        message:
+          "Your payment is completed alredy, you can't make another payment at this instance",
+        status: false,
+      });
+    }
+
     // Deduct the specified amount from the user's wallet
     getUser.Wallet = userWallet - parseFloat(amount);
 
@@ -715,7 +732,6 @@ const PayThrift = async (req, res, next) => {
   }
 };
 
-
 // Withdrawing money from the group wallet
 const WithdrawFunds = async (req, res, next) => {
   try {
@@ -735,12 +751,20 @@ const WithdrawFunds = async (req, res, next) => {
       return res.status(401).send({ message: "Thrift group not found" });
     }
 
+    // Check verification status for all users in the thrift group
+    const allVerified = thriftGroup.Members.every((member) => member.verified);
+
+    if (!allVerified) {
+      return res.status(400).send({
+        message: "Not all users are verified. Verification is required before withdrawing.",
+      });
+    }
+
     if (Withdrawer !== username) {
-      return res
-        .status(400)
-        .send({
-          message: "It's not your turn to withdraw, kindly wait for your time to withdraw",
-        });
+      return res.status(400).send({
+        message:
+          "It's not your turn to withdraw, kindly wait for your time to withdraw",
+      });
     }
 
     // Subtract the amount from the thrift group's wallet
@@ -749,28 +773,21 @@ const WithdrawFunds = async (req, res, next) => {
     // Add the amount to the user's wallet
     user.Wallet += amount;
 
-    // Set payment status to false for all group members
-    thriftGroup.Members.forEach((groupUser) => {
-      if (Array.isArray(groupUser.payments)) {
-        groupUser.payment = groupUser.payments.map((payment) => ({
-          ...payment,
-          paid: false,
-        }));
-      }
+    // Reset payments for all users in the thrift group
+    thriftGroup.Members.forEach((member) => {
+      member.payment = member.payment.map(() => ({ paid: false }));
     });
 
     // Save the updated thrift group and user data
     await thriftGroup.save();
     await user.save();
 
-    res.status(200).send({ message: "Withdrawal successful" });
+    res.status(200).send({ message: ` You just made Withdrawal From ${groupName}, we're so glad for your contribution  with us  ` });
   } catch (error) {
     console.error(error);
     res.status(500).send({ message: "Internal Server Error" });
   }
 };
-
-
 
 
 module.exports = {
@@ -786,5 +803,5 @@ module.exports = {
   changepassword,
   UpdateUsersWallet,
   PayThrift,
-  WithdrawFunds
+  WithdrawFunds,
 };
