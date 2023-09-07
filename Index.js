@@ -15,7 +15,7 @@ app.use(express.urlencoded({ extended: true }));
 
 // CORS middleware
 const corsOptions = {
-  origin: 'http://localhost:3001', // Replace with your React app's URL
+  origin: '*', // Replace with your React app's URL
   methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
   credentials: true, // If your requests include cookies
 };
