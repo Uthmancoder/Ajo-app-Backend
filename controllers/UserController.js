@@ -4,7 +4,7 @@ const multer = require("multer");
 // const bcryptjs = require("bcryptjs");
 const argon2 = require("argon2");
 const ThriftModel = require("../Models/CreateThtift");
-const { sendMail } = require("../Config/MyMailer");
+const { sendMail, ForgotPassword } = require("../Config/MyMailer");
 const cloudinary = require("cloudinary").v2;
 const { generateToken, verifyToken } = require("../Services/SessionService");
 const axios = require("axios");
@@ -263,9 +263,11 @@ const EditProfile = async (req, res, next) => {
     // Save the updated user profile
     await getuser.save();
 
-    return res
-      .status(200)
-      .send({ message: "You just updated your Profile we're glad With you connecting with us", status: true });
+    return res.status(200).send({
+      message:
+        "You just updated your Profile we're glad With you connecting with us",
+      status: true,
+    });
   } catch (error) {
     // Handle any errors that might occur during the update process
     console.error("Error updating profile:", error);
@@ -506,7 +508,6 @@ const GetMembers = async (req, res, next) => {
     });
   }
 };
-
 
 // Funding user's wallet
 const UpdateUsersWallet = async (req, res, next) => {
@@ -756,7 +757,8 @@ const WithdrawFunds = async (req, res, next) => {
 
     if (!allVerified) {
       return res.status(400).send({
-        message: "Not all users are verified. Verification is required before withdrawing.",
+        message:
+          "Not all users are verified. Verification is required before withdrawing.",
       });
     }
 
@@ -782,13 +784,64 @@ const WithdrawFunds = async (req, res, next) => {
     await thriftGroup.save();
     await user.save();
 
-    res.status(200).send({ message: ` You just made Withdrawal From ${groupName}, we're so glad for your contribution  with us  ` });
+    res.status(200).send({
+      message: ` You just made Withdrawal From ${groupName}, we're so glad for your contribution  with us  `,
+    });
   } catch (error) {
     console.error(error);
     res.status(500).send({ message: "Internal Server Error" });
   }
 };
 
+// sending email to user when he forgot his password
+const forgotPassword = (req, res, next) => {
+  const { email, username } = req.body;
+  console.log(req.body);
+  try {
+    const generatedNum = Math.floor(Math.random() * 9999);
+    ForgotPassword(email, username, generatedNum);
+    return res
+      .status(200)
+      .send({ message: "Email sent successfully", status: true, generatedNum });
+  } catch (error) {
+    console.log(error);
+    toast.error(error.data.message)
+    return res
+      .status(400)
+      .send({ message: "Error generating Otp", status: false })
+  }
+};
+
+// resetting user's password
+const ResetPassword = async (req, res, next) => {
+  try {
+    const { username, password } = req.body;
+
+    // Find the user by their email
+    const user = await userModel.findOne({ username });
+
+    if (!user) {
+      return res.status(400).send({ message: "User not found", status: false });
+    }
+
+    // Hash the new password
+    const hashedNewPassword = await argon2.hash(password);
+
+    // Update the user's password in the database
+    user.password = hashedNewPassword;
+    await user.save();
+
+    return res
+      .status(200)
+      .send({ message: "Password Updated successfully", status: true });
+  } catch (error) {
+    // Handle any errors that might occur during the password change process
+    console.error("Error Resetting password:", error);
+    return res
+      .status(500)
+      .send({ message: "An error occurred", status: false });
+  }
+};
 
 module.exports = {
   signup,
@@ -804,4 +857,6 @@ module.exports = {
   UpdateUsersWallet,
   PayThrift,
   WithdrawFunds,
+  forgotPassword,
+  ResetPassword
 };
