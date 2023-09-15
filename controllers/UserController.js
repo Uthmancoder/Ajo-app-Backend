@@ -800,9 +800,13 @@ const forgotPassword = (req, res, next) => {
   try {
     const generatedNum = Math.floor(Math.random() * 9999);
     ForgotPassword(email, username, generatedNum);
+    const data ={
+      generatedNum,
+      username
+    }
     return res
       .status(200)
-      .send({ message: "Email sent successfully", status: true, generatedNum });
+      .send({ message: "Email sent successfully", status: true, data });
   } catch (error) {
     console.log(error);
     toast.error(error.data.message)
@@ -816,6 +820,7 @@ const forgotPassword = (req, res, next) => {
 const ResetPassword = async (req, res, next) => {
   try {
     const { username, password } = req.body;
+    console.log(req.body)
 
     // Find the user by their email
     const user = await userModel.findOne({ username });
