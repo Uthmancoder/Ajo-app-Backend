@@ -643,11 +643,11 @@ const PayThrift = async (req, res, next) => {
     if (!getUser) {
       return res
         .status(400)
-        .send({ message: "User Not Found, Try Signing in for a new account" });
+        .send({ message: "User Not Found, Try Signing in for a new account" , status : false});
     }
 
     if (!thriftGroup) {
-      return res.status(401).send({ message: "Thrift-group not found" });
+      return res.status(401).send({ message: "Thrift-group not found", status : false });
     }
 
     const userWallet = parseFloat(getUser.Wallet); // Convert to float
@@ -673,6 +673,7 @@ const PayThrift = async (req, res, next) => {
       return res.status(400).send({
         message:
           "The amount you're trying to pay is less than the required amount",
+          status : false
       });
     }
 
@@ -680,6 +681,7 @@ const PayThrift = async (req, res, next) => {
       return res.status(400).send({
         message:
           "The amount you're trying to pay is More than the required amount",
+          ststus : false
       });
     }
 
@@ -726,7 +728,7 @@ const PayThrift = async (req, res, next) => {
       thriftGroup.Members[memberIndex].payment
     );
 
-    return res.status(200).send({ message: "Payment Made successfully" });
+    return res.status(200).send({ message: "Payment Made successfully", status : true });
   } catch (error) {
     console.error(error);
     return res.status(500).send({ message: "Internal Server Error" });
