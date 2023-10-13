@@ -248,7 +248,12 @@ const EditProfile = async (req, res, next) => {
 
     // Find the user based on the provided username
     const getuser = await userModel.findOne({ email });
-
+    const date = new Date();
+    const time = date.getTime.toLocaleTimeString("en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+    const DateEdited = date.toDateString();
     if (!getuser) {
       return res.status(400).send({ message: "User not found", status: false });
     }
@@ -264,8 +269,9 @@ const EditProfile = async (req, res, next) => {
     await getuser.save();
 
     return res.status(200).send({
-      message:
-        "You just updated your Profile we're glad With you connecting with us",
+      message: `Yoo!! ${username}  You just updated your Profile we're glad With you connecting with us`,
+      time,
+      DateEdited,
       status: true,
     });
   } catch (error) {
@@ -304,13 +310,25 @@ const changepassword = async (req, res, next) => {
     // Hash the new password
     const hashedNewPassword = await argon2.hash(newPassword);
 
+    const date = new Date();
+    const time = date.getTime.toLocaleTimeString("en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+    const DateEdited = date.toDateString();
+
     // Update the user's password in the database
     user.password = hashedNewPassword;
     await user.save();
 
     return res
       .status(200)
-      .send({ message: "Password Updated successfully", status: true });
+      .send({
+        message: "Your Password is updated successfully",
+        time,
+        DateEdited,
+        status: true,
+      });
   } catch (error) {
     // Handle any errors that might occur during the password change process
     console.error("Error changing password:", error);
@@ -407,7 +425,6 @@ const CreateAThrift = async (req, res, next) => {
     return res.status(201).send({
       message: `${newThrift.groupName}, group created successfully. We are so happy to have you on board. You can kindly add more users to your group via the group link.`,
       status: true,
-      link: "http://localhost:3001/jointhrift",
       createdAt: createdAt.toISOString(),
       date: date,
       time: time,
@@ -435,6 +452,7 @@ const FindExistingThrift = async (req, res, next) => {
         }));
         return {
           groupName: existingThrift.groupName,
+          groupId: existingThrift._id,
           groupIcon: existingThrift.image_url,
           RequiredUsers: existingThrift.RequiredUsers,
           Amount: existingThrift.Amount,
@@ -484,6 +502,7 @@ const GetMembers = async (req, res, next) => {
         status: true,
         plan: plan,
         groupName: groupName,
+        groupId: thriftGroup._id,
         groupMembers: groupMembers,
         groupIcon: thriftGroup.image_url,
         RequiredUsers: thriftGroup.RequiredUsers,
@@ -509,6 +528,40 @@ const GetMembers = async (req, res, next) => {
   }
 };
 
+// GET a specific groupData for joining a thrift
+const getGroupDetails = async (req, res, next) => {
+  const GroupId = req.params.id; // Use req.params.id to access the value
+  console.log(req.params);
+
+  try {
+    const thriftGroup = await ThriftModel.findById(GroupId);
+    console.log(thriftGroup);
+
+    if (!thriftGroup) {
+      return res
+        .status(404)
+        .send({ message: "Invalid Invite, Thrift group not found" });
+    }
+
+    const groupDetails = {
+      groupName: thriftGroup.groupName,
+      groupId: thriftGroup._id,
+      groupIcon: thriftGroup.image_url,
+      RequiredUsers: thriftGroup.RequiredUsers,
+      Amount: thriftGroup.Amount,
+      plan: thriftGroup.plan,
+      Total: thriftGroup.Total,
+    };
+
+    return res
+      .status(200)
+      .send({ message: "Invite link details", groupDetails });
+  } catch (error) {
+    console.error("Error fetching group details:", error);
+    return res.status(500).send({ message: "Internal server error" });
+  }
+};
+
 // Funding user's wallet
 const UpdateUsersWallet = async (req, res, next) => {
   const { username, amount } = req.body;
@@ -527,18 +580,26 @@ const UpdateUsersWallet = async (req, res, next) => {
     console.log("Current Wallet Balance:", user.Wallet);
 
     // Update the user's wallet
-    // Update the user's wallet
     user.Wallet = parseFloat(user.Wallet) + parseFloat(amount);
     console.log("New Wallet Balance:", user.Wallet);
 
     // After saving the user
     await user.save();
 
+    const date = new Date();
+    const time = date.getTime.toLocaleTimeString("en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+    const DateEdited = date.toDateString();
+
     console.log("Wallet updated for user:", user.email);
 
     return res.status(200).json({
       success: true,
       message: `Payment verified and wallet updated successfully, an amount of ${amount} has been added to your wallet`,
+      time,
+      DateEdited,
     });
   } catch (error) {
     console.error("Error:", error);
@@ -549,7 +610,7 @@ const UpdateUsersWallet = async (req, res, next) => {
   }
 };
 
-// Add a new user to existing thrift
+// Add a new user to an existing thrift
 const AddUserToGroup = async (req, res, next) => {
   try {
     const { username, groupname } = req.body;
@@ -633,6 +694,8 @@ const AddUserToGroup = async (req, res, next) => {
 
 // Paying of thrifts to each group
 const PayThrift = async (req, res, next) => {
+
+  // data expecting from the client
   const { username, amount, groupName, amountPerThrift } = req.body;
 
   try {
@@ -640,21 +703,28 @@ const PayThrift = async (req, res, next) => {
     const getUser = await userModel.findOne({ username });
     const thriftGroup = await ThriftModel.findOne({ groupName });
 
+    // check if the user is available
     if (!getUser) {
-      return res
-        .status(400)
-        .send({ message: "User Not Found, Try Signing in for a new account" , status : false});
+      return res.status(400).send({
+        message: "User Not Found, Try Signing in for a new account",
+        status: false,
+      });
     }
 
+    // check if there's no thrift available
     if (!thriftGroup) {
-      return res.status(401).send({ message: "Thrift-group not found", status : false });
+      return res
+        .status(401)
+        .send({ message: "Thrift-group not found", status: false });
     }
 
-    const userWallet = parseFloat(getUser.Wallet); // Convert to float
-    const groupWallet = parseFloat(thriftGroup.Wallet); // Convert to float
+   // Convert userWllet to float
+    const userWallet = parseFloat(getUser.Wallet); 
+
+    // Convert groupWallet to float
+    const groupWallet = parseFloat(thriftGroup.Wallet); 
 
     // Check if all users in the group are completed
-    // Check if the group is completed
     if (thriftGroup.Members.length !== thriftGroup.RequiredUsers) {
       return res.status(400).send({
         message:
@@ -665,27 +735,29 @@ const PayThrift = async (req, res, next) => {
 
     // Check if the user has enough balance
     if (userWallet < amount) {
-      return res.status(400).send({ message: "Insufficient balance" });
+      return res.status(500).send({ message: "Insufficient balance" });
     }
 
     // Check if the amount paid is less than the amountPerThrift
     if (parseFloat(amount) < parseFloat(amountPerThrift)) {
-      return res.status(400).send({
+      return res.status(401).send({
         message:
           "The amount you're trying to pay is less than the required amount",
-          status : false
+        status: false,
       });
     }
 
+    // Check if amount to be paid is greater 
     if (parseFloat(amount) > parseFloat(amountPerThrift)) {
       return res.status(400).send({
         message:
           "The amount you're trying to pay is More than the required amount",
-          ststus : false
+        ststus: false,
       });
     }
 
-    if (thriftGroup.Members.length !== thriftGroup.Members.payment.length) {
+    // Check if the user's payment is completed
+    if (thriftGroup.Members.length === thriftGroup.Members.payment.length) {
       return res.status(400).send({
         message:
           "Your payment is completed alredy, you can't make another payment at this instance",
@@ -723,12 +795,22 @@ const PayThrift = async (req, res, next) => {
     await getUser.save();
     await thriftGroup.save();
 
+    // attach the date to be sent to the client 
+    const date = new Date();
+    const time = date.getTime.toLocaleTimeString("en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+    const DateEdited = date.toDateString();
+     
     console.log(
       "User Payment Status Updated:",
       thriftGroup.Members[memberIndex].payment
     );
 
-    return res.status(200).send({ message: "Payment Made successfully", status : true });
+    return res
+      .status(200)
+      .send({ message: `A Payment of ${amount} has been  Made successfully to ${groupName}`, time, DateEdited, status: true });
   } catch (error) {
     console.error(error);
     return res.status(500).send({ message: "Internal Server Error" });
@@ -754,6 +836,8 @@ const WithdrawFunds = async (req, res, next) => {
       return res.status(401).send({ message: "Thrift group not found" });
     }
 
+    
+
     // Check verification status for all users in the thrift group
     const allVerified = thriftGroup.Members.every((member) => member.verified);
 
@@ -764,6 +848,7 @@ const WithdrawFunds = async (req, res, next) => {
       });
     }
 
+    // Checking the user trying to withdraw money
     if (Withdrawer !== username) {
       return res.status(400).send({
         message:
@@ -786,8 +871,18 @@ const WithdrawFunds = async (req, res, next) => {
     await thriftGroup.save();
     await user.save();
 
+    const date = new Date();
+    const time = date.getTime.toLocaleTimeString("en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+    const DateEdited = date.toDateString();
+
     res.status(200).send({
-      message: ` You just made Withdrawal From ${groupName}, we're so glad for your contribution  with us  `,
+      message: ` You just made Withdrawal of ${amount} From ${groupName}, we're so glad for your contribution  with us  `,
+      time,
+      DateEdited,
+      status : true
     });
   } catch (error) {
     console.error(error);
@@ -802,19 +897,19 @@ const forgotPassword = (req, res, next) => {
   try {
     const generatedNum = Math.floor(Math.random() * 9999);
     ForgotPassword(email, username, generatedNum);
-    const data ={
+    const data = {
       generatedNum,
-      username
-    }
+      username,
+    };
     return res
       .status(200)
       .send({ message: "Email sent successfully", status: true, data });
   } catch (error) {
     console.log(error);
-    toast.error(error.data.message)
+    toast.error(error.data.message);
     return res
       .status(400)
-      .send({ message: "Error generating Otp", status: false })
+      .send({ message: "Error generating Otp", status: false });
   }
 };
 
@@ -822,7 +917,7 @@ const forgotPassword = (req, res, next) => {
 const ResetPassword = async (req, res, next) => {
   try {
     const { username, password } = req.body;
-    console.log(req.body)
+    console.log(req.body);
 
     // Find the user by their email
     const user = await userModel.findOne({ username });
@@ -837,10 +932,17 @@ const ResetPassword = async (req, res, next) => {
     // Update the user's password in the database
     user.password = hashedNewPassword;
     await user.save();
+ 
+    const date = new Date();
+    const time = date.getTime.toLocaleTimeString("en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+    const DateEdited = date.toDateString();
 
     return res
       .status(200)
-      .send({ message: "Password Updated successfully", status: true });
+      .send({ message: "Your  Password has been Updated successfully", status: true,time, DateEdited });
   } catch (error) {
     // Handle any errors that might occur during the password change process
     console.error("Error Resetting password:", error);
@@ -865,5 +967,6 @@ module.exports = {
   PayThrift,
   WithdrawFunds,
   forgotPassword,
-  ResetPassword
+  ResetPassword,
+  getGroupDetails,
 };
