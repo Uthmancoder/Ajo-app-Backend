@@ -24,6 +24,8 @@ const signup = async (req, res, next) => {
       image,
     } = req.body;
 
+    console.log(req.body)
+
     if (
       !firstname ||
       !lastname ||
@@ -52,7 +54,7 @@ const signup = async (req, res, next) => {
         status: false,
       });
     }
-    const hash = await bcryptjs.hash(password);
+    const hash = await bcryptjs.hash(password, 10);
     const newUser = await userModel.create({
       firstname,
       lastname,
@@ -91,7 +93,9 @@ const signin = async (req, res, next) => {
       });
     }
 
-    const passwordMatch = await bcryptjs.verify(result.password, password);
+    // compare the password with the decoded one 
+    const passwordMatch = await bcryptjs.compare(password, result.password);
+
     // console.log(passwordMatch);
     if (!passwordMatch) {
       return res.status(400).send({
@@ -104,7 +108,7 @@ const signin = async (req, res, next) => {
     return res.status(200).send({
       message: `Hi ${result.username}, Welcome To Ultimate Microfinance Bank`,
       status: true,
-      token,
+      token, 
       result,
     });
   } catch (error) {
