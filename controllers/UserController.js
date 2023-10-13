@@ -1,8 +1,8 @@
 const userModel = require("../Models/Usermodel");
 const jwt = require("jsonwebtoken");
 const multer = require("multer");
-// const bcryptjs = require("bcryptjs");
-const argon2 = require("argon2");
+const bcryptjs = require("bcryptjs");
+// const argon2 = require("argon2");
 const ThriftModel = require("../Models/CreateThtift");
 const { sendMail, ForgotPassword } = require("../Config/MyMailer");
 const cloudinary = require("cloudinary").v2;
@@ -52,7 +52,7 @@ const signup = async (req, res, next) => {
         status: false,
       });
     }
-    const hash = await argon2.hash(password);
+    const hash = await bcryptjs.hash(password);
     const newUser = await userModel.create({
       firstname,
       lastname,
@@ -91,7 +91,7 @@ const signin = async (req, res, next) => {
       });
     }
 
-    const passwordMatch = await argon2.verify(result.password, password);
+    const passwordMatch = await bcryptjs.verify(result.password, password);
     // console.log(passwordMatch);
     if (!passwordMatch) {
       return res.status(400).send({
