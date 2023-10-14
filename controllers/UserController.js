@@ -252,8 +252,8 @@ const EditProfile = async (req, res, next) => {
 
     // Find the user based on the provided username
     const getuser = await userModel.findOne({ email });
-    const date = new Date();
-    const time = date.getTime.toLocaleTimeString("en-US", {
+    const date = new Date(); // Create a Date object
+    const time = date.toLocaleTimeString("en-US", {
       hour: "2-digit",
       minute: "2-digit",
     });
@@ -287,6 +287,7 @@ const EditProfile = async (req, res, next) => {
   }
 };
 
+
 // changing password
 const changepassword = async (req, res, next) => {
   try {
@@ -300,7 +301,7 @@ const changepassword = async (req, res, next) => {
     }
 
     // Compare the old password with the stored hashed password
-    const isOldPasswordCorrect = await argon2.verify(
+    const isOldPasswordCorrect = await bcryptjs.compare(
       user.password,
       oldpassword
     );
@@ -312,10 +313,10 @@ const changepassword = async (req, res, next) => {
     }
 
     // Hash the new password
-    const hashedNewPassword = await argon2.hash(newPassword);
+    const hashedNewPassword = await bcryptjs.hash(newPassword, 10);
 
     const date = new Date();
-    const time = date.getTime.toLocaleTimeString("en-US", {
+    const time = date.toLocaleTimeString("en-US", {
       hour: "2-digit",
       minute: "2-digit",
     });
@@ -591,7 +592,7 @@ const UpdateUsersWallet = async (req, res, next) => {
     await user.save();
 
     const date = new Date();
-    const time = date.getTime.toLocaleTimeString("en-US", {
+    const time = date.toLocaleTimeString("en-US", {
       hour: "2-digit",
       minute: "2-digit",
     });
@@ -900,6 +901,8 @@ const forgotPassword = (req, res, next) => {
   console.log(req.body);
   try {
     const generatedNum = Math.floor(Math.random() * 9999);
+    
+    // here is where we send the email to the user
     ForgotPassword(email, username, generatedNum);
     const data = {
       generatedNum,
@@ -931,14 +934,14 @@ const ResetPassword = async (req, res, next) => {
     }
 
     // Hash the new password
-    const hashedNewPassword = await argon2.hash(password);
+    const hashedNewPassword = await bcryptjs.hash(password, 10);
 
     // Update the user's password in the database
     user.password = hashedNewPassword;
     await user.save();
  
     const date = new Date();
-    const time = date.getTime.toLocaleTimeString("en-US", {
+    const time = date.toLocaleTimeString("en-US", {
       hour: "2-digit",
       minute: "2-digit",
     });
@@ -946,7 +949,7 @@ const ResetPassword = async (req, res, next) => {
 
     return res
       .status(200)
-      .send({ message: "Your  Password has been Updated successfully", status: true,time, DateEdited });
+      .send({ message: "Your  Password has been Updated successfully", status: true, time, DateEdited });
   } catch (error) {
     // Handle any errors that might occur during the password change process
     console.error("Error Resetting password:", error);
