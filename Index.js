@@ -27,6 +27,7 @@ app.use("/user", UserRouter);
 
 
 const uri = process.env.MONGO_URL;
+// connect to the database
 const connectWithRetry = () => {
   mongoose.set("strictQuery", false);
 

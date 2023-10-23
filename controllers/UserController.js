@@ -802,7 +802,7 @@ const PayThrift = async (req, res, next) => {
 
     // attach the date to be sent to the client 
     const date = new Date();
-    const time = date.getTime.toLocaleTimeString("en-US", {
+    const time = date.toLocaleTimeString("en-US", {
       hour: "2-digit",
       minute: "2-digit",
     });
@@ -877,7 +877,7 @@ const WithdrawFunds = async (req, res, next) => {
     await user.save();
 
     const date = new Date();
-    const time = date.getTime.toLocaleTimeString("en-US", {
+    const time = date.toLocaleTimeString("en-US", {
       hour: "2-digit",
       minute: "2-digit",
     });
