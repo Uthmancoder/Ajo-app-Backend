@@ -697,6 +697,7 @@ const AddUserToGroup = async (req, res, next) => {
   }
 };
 
+
 // Paying of thrifts to each group
 const PayThrift = async (req, res, next) => {
 
@@ -744,7 +745,7 @@ const PayThrift = async (req, res, next) => {
     }
 
     // Check if the amount paid is less than the amountPerThrift
-    if (parseFloat(amount) < parseFloat(amountPerThrift)) {
+    if (amount < amountPerThrift) {
       return res.status(401).send({
         message:
           "The amount you're trying to pay is less than the required amount",
@@ -753,7 +754,7 @@ const PayThrift = async (req, res, next) => {
     }
 
     // Check if amount to be paid is greater 
-    if (parseFloat(amount) > parseFloat(amountPerThrift)) {
+    if (amount > amountPerThrift) {
       return res.status(400).send({
         message:
           "The amount you're trying to pay is More than the required amount",
@@ -821,6 +822,7 @@ const PayThrift = async (req, res, next) => {
     return res.status(500).send({ message: "Internal Server Error" });
   }
 };
+
 
 // Withdrawing money from the group wallet
 const WithdrawFunds = async (req, res, next) => {
