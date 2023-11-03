@@ -107,15 +107,15 @@ const signin = async (req, res, next) => {
     const currentDate = new Date();
 
     // Format the date and time as "YYYY-MM-DD HH:MM:SS" (24-hour clock)
-    const formattedDateTime = currentDate.toLocaleString('en-US', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
+    const formattedDateTime = currentDate.toLocaleString("en-US", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
     });
-    
+
     const token = generateToken(result.email);
     return res.status(200).send({
       message: `Hi ${result.username}, Welcome To Ultimate Microfinance Bank`,
@@ -124,7 +124,6 @@ const signin = async (req, res, next) => {
       result,
       signInDateTime: formattedDateTime, // Attach the formatted date and time
     });
-    
   } catch (error) {
     console.log(error);
     next(error);
@@ -266,12 +265,18 @@ const EditProfile = async (req, res, next) => {
 
     // Find the user based on the provided username
     const getuser = await userModel.findOne({ email });
-    const date = new Date(); // Create a Date object
-    const time = date.toLocaleTimeString("en-US", {
+    const currentDate = new Date();
+
+    // Format the date and time as "YYYY-MM-DD HH:MM:SS" (24-hour clock)
+    const formattedDateTime = currentDate.toLocaleString("en-US", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
       hour: "2-digit",
       minute: "2-digit",
+      second: "2-digit",
     });
-    const DateEdited = date.toDateString();
+
     if (!getuser) {
       return res.status(400).send({ message: "User not found", status: false });
     }
@@ -288,8 +293,7 @@ const EditProfile = async (req, res, next) => {
 
     return res.status(200).send({
       message: `Yoo!! ${username}  You just updated your Profile we're glad With you connecting with us`,
-      time,
-      DateEdited,
+      formattedDateTime,
       status: true,
     });
   } catch (error) {
@@ -328,12 +332,17 @@ const changepassword = async (req, res, next) => {
     // Hash the new password
     const hashedNewPassword = await bcryptjs.hash(newPassword, 10);
 
-    const date = new Date();
-    const time = date.toLocaleTimeString("en-US", {
+    const currentDate = new Date();
+
+    // Format the date and time as "YYYY-MM-DD HH:MM:SS" (24-hour clock)
+    const formattedDateTime = currentDate.toLocaleString("en-US", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
       hour: "2-digit",
       minute: "2-digit",
+      second: "2-digit",
     });
-    const DateEdited = date.toDateString();
 
     // Update the user's password in the database
     user.password = hashedNewPassword;
@@ -341,16 +350,15 @@ const changepassword = async (req, res, next) => {
 
     return res.status(200).send({
       message: "Your Password is updated successfully",
-      time,
-      DateEdited,
+      formattedDateTime,
       status: true,
     });
   } catch (error) {
     // Handle any errors that might occur during the password change process
-    console.error("Error changing password:", error);
+    console.log("Error changing password  :", error);
     return res
       .status(500)
-      .send({ message: "An error occurred", status: false });
+      .send({ message: "Error changing password:", status: false });
   }
 };
 
@@ -380,9 +388,6 @@ const CreateAThrift = async (req, res, next) => {
         status: false,
       });
     }
-
-    // Create the new thrift group with the current timestamp
-    const createdAt = new Date(); // Get the current date and time
 
     // Initialize the members array with the creator and other members
     const allMembers = [];
@@ -434,16 +439,22 @@ const CreateAThrift = async (req, res, next) => {
 
     const groupId = newThrift._id;
 
-    // Extract the date and time separately
-    const date = createdAt.toLocaleDateString();
-    const time = createdAt.toLocaleTimeString();
+    const currentDate = new Date();
+
+    // Format the date and time as "YYYY-MM-DD HH:MM:SS" (24-hour clock)
+    const formattedDateTime = currentDate.toLocaleString("en-US", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    });
 
     return res.status(201).send({
       message: `${newThrift.groupName}, group created successfully. We are so happy to have you on board. You can kindly add more users to your group via the group link.`,
       status: true,
-      createdAt: createdAt.toISOString(),
-      date: date,
-      time: time,
+      formattedDateTime,
     });
   } catch (error) {
     console.log("Internal server error", error);
@@ -589,7 +600,7 @@ const UpdateUsersWallet = async (req, res, next) => {
     if (!user) {
       return res
         .status(404)
-        .json({ message: "User not found", success: false });
+        .send({ message: "User not found", success: false });
     }
 
     // Before updating the wallet
@@ -602,20 +613,24 @@ const UpdateUsersWallet = async (req, res, next) => {
     // After saving the user
     await user.save();
 
-    const date = new Date();
-    const time = date.toLocaleTimeString("en-US", {
+    const currentDate = new Date();
+
+    // Format the date and time as "YYYY-MM-DD HH:MM:SS" (24-hour clock)
+    const formattedDateTime = currentDate.toLocaleString("en-US", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
       hour: "2-digit",
       minute: "2-digit",
+      second: "2-digit",
     });
-    const DateEdited = date.toDateString();
 
     console.log("Wallet updated for user:", user.email);
 
     return res.status(200).json({
       success: true,
       message: `Payment verified and wallet updated successfully, an amount of ${amount} has been added to your wallet`,
-      time,
-      DateEdited,
+      formattedDateTime
     });
   } catch (error) {
     console.error("Error:", error);
@@ -733,7 +748,7 @@ const PayThrift = async (req, res, next) => {
         .send({ message: "Thrift-group not found", status: false });
     }
 
-    // Convert userWllet to float
+    // Convert userWallet to float
     const userWallet = parseFloat(getUser.Wallet);
 
     // Convert groupWallet to float
@@ -749,12 +764,12 @@ const PayThrift = async (req, res, next) => {
     }
 
     // Check if the user has enough balance
-    if (userWallet < amount) {
+    if (parseFloat(userWallet) < parseFloat(amount)) {
       return res.status(500).send({ message: "Insufficient balance" });
     }
 
     // Check if the amount paid is less than the amountPerThrift
-    if (amount < amountPerThrift) {
+    if (parseFloat(amount) < parseFloat(amountPerThrift)) {
       return res.status(401).send({
         message:
           "The amount you're trying to pay is less than the required amount",
@@ -763,19 +778,19 @@ const PayThrift = async (req, res, next) => {
     }
 
     // Check if amount to be paid is greater
-    if (amount > amountPerThrift) {
+    if (parseFloat(amount) > parseFloat(amountPerThrift)) {
       return res.status(400).send({
         message:
           "The amount you're trying to pay is More than the required amount",
         ststus: false,
       });
     }
-
+    const requiredUser = thriftGroup.RequiredUsers;
     // Check if the user's payment is completed
     if (
       thriftGroup &&
       Array.isArray(thriftGroup.Members) &&
-      thriftGroup.Members.length === thriftGroup.RequiredUsers
+      thriftGroup.Members.length -1 === parseFloat(requiredUser)
     ) {
       return res.status(400).send({
         message:
@@ -814,30 +829,31 @@ const PayThrift = async (req, res, next) => {
     await getUser.save();
     await thriftGroup.save();
 
-    // attach the date to be sent to the client
-    const date = new Date();
-    const time = date.toLocaleTimeString("en-US", {
+    const currentDate = new Date();
+
+    // Format the date and time as "YYYY-MM-DD HH:MM:SS" (24-hour clock)
+    const formattedDateTime = currentDate.toLocaleString("en-US", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
       hour: "2-digit",
       minute: "2-digit",
+      second: "2-digit",
     });
-    const DateEdited = date.toDateString();
 
     console.log(
       "User Payment Status Updated:",
       thriftGroup.Members[memberIndex].payment
     );
 
-    return res
-      .status(200)
-      .send({
-        message: `A Payment of ${amount} has been  Made successfully to ${groupName}`,
-        time,
-        DateEdited,
-        status: true,
-      });
+    return res.status(200).send({
+      message: `A Payment of ${amount} has been  Made successfully to ${groupName}`,
+      formattedDateTime,
+      status: true,
+    });
   } catch (error) {
     console.error(error);
-    return res.status(500).send({ message: "Internal Server Error" });
+    return res.status(500).send({ message: "Error Making payment to group" });
   }
 };
 
@@ -866,7 +882,7 @@ const WithdrawFunds = async (req, res, next) => {
     if (!allVerified) {
       return res.status(400).send({
         message:
-          "Not all users are verified. Verification is required before withdrawing.",
+          "Not all users are verified.Payment  Verification for all users is required before withdrawing.",
       });
     }
 
@@ -893,17 +909,21 @@ const WithdrawFunds = async (req, res, next) => {
     await thriftGroup.save();
     await user.save();
 
-    const date = new Date();
-    const time = date.toLocaleTimeString("en-US", {
+    const currentDate = new Date();
+
+    // Format the date and time as "YYYY-MM-DD HH:MM:SS" (24-hour clock)
+    const formattedDateTime = currentDate.toLocaleString("en-US", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
       hour: "2-digit",
       minute: "2-digit",
+      second: "2-digit",
     });
-    const DateEdited = date.toDateString();
 
     res.status(200).send({
       message: ` You just made Withdrawal of ${amount} From ${groupName}, we're so glad for your contribution  with us  `,
-      time,
-      DateEdited,
+      formattedDateTime,
       status: true,
     });
   } catch (error) {
@@ -957,21 +977,23 @@ const ResetPassword = async (req, res, next) => {
     user.password = hashedNewPassword;
     await user.save();
 
-    const date = new Date();
-    const time = date.toLocaleTimeString("en-US", {
+    const currentDate = new Date();
+
+    // Format the date and time as "YYYY-MM-DD HH:MM:SS" (24-hour clock)
+    const formattedDateTime = currentDate.toLocaleString("en-US", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
       hour: "2-digit",
       minute: "2-digit",
+      second: "2-digit",
     });
-    const DateEdited = date.toDateString();
 
-    return res
-      .status(200)
-      .send({
-        message: "Your  Password has been Updated successfully",
-        status: true,
-        time,
-        DateEdited,
-      });
+    return res.status(200).send({
+      message: "Your  Password has been Updated successfully",
+      status: true,
+      formattedDateTime,
+    });
   } catch (error) {
     // Handle any errors that might occur during the password change process
     console.error("Error Resetting password:", error);
