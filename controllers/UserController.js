@@ -24,7 +24,7 @@ const signup = async (req, res, next) => {
       image,
     } = req.body;
 
-    console.log(req.body)
+    console.log(req.body);
 
     if (
       !firstname ||
@@ -93,7 +93,7 @@ const signin = async (req, res, next) => {
       });
     }
 
-    // compare the password with the decoded one 
+    // compare the password with the decoded one
     const passwordMatch = await bcryptjs.compare(password, result.password);
 
     // console.log(passwordMatch);
@@ -104,13 +104,27 @@ const signin = async (req, res, next) => {
       });
     }
 
+    const currentDate = new Date();
+
+    // Format the date and time as "YYYY-MM-DD HH:MM:SS" (24-hour clock)
+    const formattedDateTime = currentDate.toLocaleString('en-US', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    });
+    
     const token = generateToken(result.email);
     return res.status(200).send({
       message: `Hi ${result.username}, Welcome To Ultimate Microfinance Bank`,
       status: true,
-      token, 
+      token,
       result,
+      signInDateTime: formattedDateTime, // Attach the formatted date and time
     });
+    
   } catch (error) {
     console.log(error);
     next(error);
@@ -287,7 +301,6 @@ const EditProfile = async (req, res, next) => {
   }
 };
 
-
 // changing password
 const changepassword = async (req, res, next) => {
   try {
@@ -326,14 +339,12 @@ const changepassword = async (req, res, next) => {
     user.password = hashedNewPassword;
     await user.save();
 
-    return res
-      .status(200)
-      .send({
-        message: "Your Password is updated successfully",
-        time,
-        DateEdited,
-        status: true,
-      });
+    return res.status(200).send({
+      message: "Your Password is updated successfully",
+      time,
+      DateEdited,
+      status: true,
+    });
   } catch (error) {
     // Handle any errors that might occur during the password change process
     console.error("Error changing password:", error);
@@ -697,10 +708,8 @@ const AddUserToGroup = async (req, res, next) => {
   }
 };
 
-
 // Paying of thrifts to each group
 const PayThrift = async (req, res, next) => {
-
   // data expecting from the client
   const { username, amount, groupName, amountPerThrift } = req.body;
 
@@ -724,11 +733,11 @@ const PayThrift = async (req, res, next) => {
         .send({ message: "Thrift-group not found", status: false });
     }
 
-   // Convert userWllet to float
-    const userWallet = parseFloat(getUser.Wallet); 
+    // Convert userWllet to float
+    const userWallet = parseFloat(getUser.Wallet);
 
     // Convert groupWallet to float
-    const groupWallet = parseFloat(thriftGroup.Wallet); 
+    const groupWallet = parseFloat(thriftGroup.Wallet);
 
     // Check if all users in the group are completed
     if (thriftGroup.Members.length !== thriftGroup.RequiredUsers) {
@@ -753,7 +762,7 @@ const PayThrift = async (req, res, next) => {
       });
     }
 
-    // Check if amount to be paid is greater 
+    // Check if amount to be paid is greater
     if (amount > amountPerThrift) {
       return res.status(400).send({
         message:
@@ -763,7 +772,11 @@ const PayThrift = async (req, res, next) => {
     }
 
     // Check if the user's payment is completed
-    if (thriftGroup.Members.length === thriftGroup.Members.payment.length) {
+    if (
+      thriftGroup &&
+      Array.isArray(thriftGroup.Members) &&
+      thriftGroup.Members.length === thriftGroup.RequiredUsers
+    ) {
       return res.status(400).send({
         message:
           "Your payment is completed alredy, you can't make another payment at this instance",
@@ -801,14 +814,14 @@ const PayThrift = async (req, res, next) => {
     await getUser.save();
     await thriftGroup.save();
 
-    // attach the date to be sent to the client 
+    // attach the date to be sent to the client
     const date = new Date();
     const time = date.toLocaleTimeString("en-US", {
       hour: "2-digit",
       minute: "2-digit",
     });
     const DateEdited = date.toDateString();
-     
+
     console.log(
       "User Payment Status Updated:",
       thriftGroup.Members[memberIndex].payment
@@ -816,13 +829,17 @@ const PayThrift = async (req, res, next) => {
 
     return res
       .status(200)
-      .send({ message: `A Payment of ${amount} has been  Made successfully to ${groupName}`, time, DateEdited, status: true });
+      .send({
+        message: `A Payment of ${amount} has been  Made successfully to ${groupName}`,
+        time,
+        DateEdited,
+        status: true,
+      });
   } catch (error) {
     console.error(error);
     return res.status(500).send({ message: "Internal Server Error" });
   }
 };
-
 
 // Withdrawing money from the group wallet
 const WithdrawFunds = async (req, res, next) => {
@@ -842,8 +859,6 @@ const WithdrawFunds = async (req, res, next) => {
     if (!thriftGroup) {
       return res.status(401).send({ message: "Thrift group not found" });
     }
-
-    
 
     // Check verification status for all users in the thrift group
     const allVerified = thriftGroup.Members.every((member) => member.verified);
@@ -889,7 +904,7 @@ const WithdrawFunds = async (req, res, next) => {
       message: ` You just made Withdrawal of ${amount} From ${groupName}, we're so glad for your contribution  with us  `,
       time,
       DateEdited,
-      status : true
+      status: true,
     });
   } catch (error) {
     console.error(error);
@@ -903,7 +918,7 @@ const forgotPassword = (req, res, next) => {
   console.log(req.body);
   try {
     const generatedNum = Math.floor(Math.random() * 9999);
-    
+
     // here is where we send the email to the user
     ForgotPassword(email, username, generatedNum);
     const data = {
@@ -941,7 +956,7 @@ const ResetPassword = async (req, res, next) => {
     // Update the user's password in the database
     user.password = hashedNewPassword;
     await user.save();
- 
+
     const date = new Date();
     const time = date.toLocaleTimeString("en-US", {
       hour: "2-digit",
@@ -951,7 +966,12 @@ const ResetPassword = async (req, res, next) => {
 
     return res
       .status(200)
-      .send({ message: "Your  Password has been Updated successfully", status: true, time, DateEdited });
+      .send({
+        message: "Your  Password has been Updated successfully",
+        status: true,
+        time,
+        DateEdited,
+      });
   } catch (error) {
     // Handle any errors that might occur during the password change process
     console.error("Error Resetting password:", error);
