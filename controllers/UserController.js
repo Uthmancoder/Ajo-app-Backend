@@ -733,7 +733,7 @@ const PayThrift = async (req, res, next) => {
     const getUser = await userModel.findOne({ username });
     const thriftGroup = await ThriftModel.findOne({ groupName });
 
-    // check if the user is available
+    // Check if the user is available
     if (!getUser) {
       return res.status(400).send({
         message: "User Not Found, Try Signing in for a new account",
@@ -741,11 +741,9 @@ const PayThrift = async (req, res, next) => {
       });
     }
 
-    // check if there's no thrift available
+    // Check if there's no thrift group available
     if (!thriftGroup) {
-      return res
-        .status(401)
-        .send({ message: "Thrift-group not found", status: false });
+      return res.status(400).send({ message: "Thrift group not found", status: false });
     }
 
     // Convert userWallet to float
@@ -754,56 +752,54 @@ const PayThrift = async (req, res, next) => {
     // Convert groupWallet to float
     const groupWallet = parseFloat(thriftGroup.Wallet);
 
-    // Check if all users in the group are completed
+    // Check if all users in the group have completed their payments
     if (thriftGroup.Members.length !== thriftGroup.RequiredUsers) {
       return res.status(400).send({
-        message:
-          "Thrift group has to be completed before payment could be made.",
+        message: "Thrift group has to be completed before payment could be made.",
         status: false,
       });
     }
 
     // Check if the user has enough balance
-    if (parseFloat(userWallet) < parseFloat(amount)) {
-      return res.status(500).send({ message: "Insufficient balance" });
+    if (userWallet < parseFloat(amount)) {
+      return res.status(400).send({ message: "Insufficient balance", status: false });
     }
 
     // Check if the amount paid is less than the amountPerThrift
     if (parseFloat(amount) < parseFloat(amountPerThrift)) {
-      return res.status(401).send({
-        message:
-          "The amount you're trying to pay is less than the required amount",
+      return res.status(400).send({
+        message: "The amount you're trying to pay is less than the required amount",
         status: false,
       });
     }
 
-    // Check if amount to be paid is greater
+    // Check if the amount paid is greater than the amountPerThrift
     if (parseFloat(amount) > parseFloat(amountPerThrift)) {
       return res.status(400).send({
-        message:
-          "The amount you're trying to pay is More than the required amount",
-        ststus: false,
+        message: "The amount you're trying to pay is more than the required amount",
+        status: false,
       });
     }
+
     const requiredUser = thriftGroup.RequiredUsers;
+
     // Check if the user's payment is completed
     if (
-      thriftGroup &&
+      thriftGroup.Members &&
       Array.isArray(thriftGroup.Members) &&
-      thriftGroup.Members.length -1 === parseFloat(requiredUser)
+      thriftGroup.Members.length === requiredUser
     ) {
       return res.status(400).send({
-        message:
-          "Your payment is completed alredy, you can't make another payment at this instance",
+        message: "Your payment is completed already; you can't make another payment at this instance",
         status: false,
       });
     }
 
     // Deduct the specified amount from the user's wallet
-    getUser.Wallet = userWallet - parseFloat(amount);
+    getUser.Wallet = (userWallet - parseFloat(amount)).toFixed(2);
 
     // Add the deducted amount to the group's wallet
-    thriftGroup.Wallet = groupWallet + parseFloat(amount);
+    thriftGroup.Wallet = (groupWallet + parseFloat(amount)).toFixed(2);
 
     // Find the user's index within the thriftGroup.Members array
     const memberIndex = thriftGroup.Members.findIndex(
@@ -832,14 +828,7 @@ const PayThrift = async (req, res, next) => {
     const currentDate = new Date();
 
     // Format the date and time as "YYYY-MM-DD HH:MM:SS" (24-hour clock)
-    const formattedDateTime = currentDate.toLocaleString("en-US", {
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-    });
+    const formattedDateTime = currentDate.toISOString();
 
     console.log(
       "User Payment Status Updated:",
@@ -847,15 +836,16 @@ const PayThrift = async (req, res, next) => {
     );
 
     return res.status(200).send({
-      message: `A Payment of ${amount} has been  Made successfully to ${groupName}`,
+      message: `A payment of ${amount} has been made successfully to ${groupName}`,
       formattedDateTime,
       status: true,
     });
   } catch (error) {
     console.error(error);
-    return res.status(500).send({ message: "Error Making payment to group" });
+    return res.status(500).send({ message: "Error making payment to group", status: false });
   }
 };
+
 
 // Withdrawing money from the group wallet
 const WithdrawFunds = async (req, res, next) => {
