@@ -122,7 +122,7 @@ const signin = async (req, res, next) => {
       status: true,
       token,
       result,
-      signInDateTime: formattedDateTime, // Attach the formatted date and time
+      formattedDateTime, // Attach the formatted date and time
     });
   } catch (error) {
     console.log(error);
