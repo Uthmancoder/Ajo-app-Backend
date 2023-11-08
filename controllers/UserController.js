@@ -923,8 +923,16 @@ const WithdrawFunds = async (req, res, next) => {
 };
 
 // sending email to user when he forgot his password
-const forgotPassword = (req, res, next) => {
-  const { email, username } = req.body;
+const forgotPassword = async (req, res, next) => {
+  const { email } = req.body;
+  if(!email){
+    return res.status(404).send({message : "email is required", status : false})
+  }
+  const user = await  userModel.findOne({email})
+  if(!user){
+     return res.status(404).send({message : "User Not Found", status : false})
+  }
+  const username = user.username
   console.log(req.body);
   try {
     const generatedNum = Math.floor(Math.random() * 9999);
