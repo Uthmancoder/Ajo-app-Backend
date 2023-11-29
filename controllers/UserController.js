@@ -14,26 +14,11 @@ const { response } = require("express");
 // sign up for a new account
 const signup = async (req, res, next) => {
   try {
-    const {
-      firstname,
-      lastname,
-      username,
-      email,
-      password,
-      confirmPassword,
-      image,
-    } = req.body;
+    const { username, email, password, confirmPassword, image } = req.body;
 
     console.log(req.body);
 
-    if (
-      !firstname ||
-      !lastname ||
-      !username ||
-      !email ||
-      !password ||
-      !confirmPassword
-    ) {
+    if (!username || !email || !password || !confirmPassword) {
       return res.status(400).send({
         message: "All fields are required",
         status: false,
@@ -56,8 +41,6 @@ const signup = async (req, res, next) => {
     }
     const hash = await bcryptjs.hash(password, 10);
     const newUser = await userModel.create({
-      firstname,
-      lastname,
       username,
       email,
       password: hash,
@@ -70,6 +53,7 @@ const signup = async (req, res, next) => {
     return res.status(201).send({
       message: "Account created successfully!",
       status: true,
+      newUser,
     });
   } catch (err) {
     console.log("Internal Server Error", err);
@@ -79,12 +63,16 @@ const signup = async (req, res, next) => {
 
 // signin to your account
 const signin = async (req, res, next) => {
-  try {
-    const { username, email, password } = req.body;
-    // console.log(password);
-    const result = await userModel.findOne({
-      $or: [{ username: username }, { email: email }],
+  const { email, password } = req.body;
+  console.log(req.body);
+  if (!email || !password) {
+    return res.status(404).send({
+      message: "All fields are required",
+      status: false,
     });
+  }
+  try {
+    const result = await userModel.findOne({ email });
     // console.log(result);
     if (!result) {
       return res.status(404).send({
@@ -92,6 +80,8 @@ const signin = async (req, res, next) => {
         status: false,
       });
     }
+    const Username = result.username;
+    const userEmail = result.email;
 
     // compare the password with the decoded one
     const passwordMatch = await bcryptjs.compare(password, result.password);
@@ -116,13 +106,21 @@ const signin = async (req, res, next) => {
       second: "2-digit",
     });
 
-    const token = generateToken(result.email);
+    const token = generateToken({ email: userEmail });
+
+    const userData = {
+      username: Username,
+      email: userEmail,
+      wallet: result.Wallet,
+      image: result.image,
+      formattedDateTime,
+    };
+    console.log(userData);
     return res.status(200).send({
-      message: `Hi ${result.username}, Welcome To Ultimate Microfinance Bank`,
+      message: `Hi ${Username}, Welcome To Ultimate Microfinance Bank. Soo glad to have you on board`,
       status: true,
       token,
-      result,
-      formattedDateTime, // Attach the formatted date and time
+      userData,
     });
   } catch (error) {
     console.log(error);
@@ -130,137 +128,10 @@ const signin = async (req, res, next) => {
   }
 };
 
-// Verifying the user's token
-const verifyUserToken = async (req, res, next) => {
-  const authHeader = req.headers.authorization;
-  // console.log(authHeader)
-
-  // if (!authHeader || !authHeader.startsWith("Bearer ")) {
-  //   return res.status(401).send({
-  //     message: "Unauthorized Token",
-  //     status: false,
-  //   });
-  // }
-  if (typeof authHeader === "undefined")
-    return res.status(404).send({ message: "User not found" });
-  const token = authHeader.split(" ")[1];
-
-  try {
-    const email = verifyToken(token);
-    const user = await userModel.findOne({ email });
-
-    if (!user) {
-      return res.status(401).send({
-        message: "This User is Unauthorized",
-        status: false,
-      });
-    }
-
-    // Attach the user object and email to the request object for later use
-    req.user = user;
-    req.email = email;
-    next(); // Call the next middleware in the chain after successful verification
-  } catch (error) {
-    if (error.name === "TokenExpiredError") {
-      return res.status(401).send({
-        message: "Token has expired",
-        status: false,
-      });
-    }
-
-    if (error.name === "JsonWebTokenError") {
-      return res.status(401).send({
-        message: "Invalid Token",
-        status: false,
-      });
-    }
-
-    // Handle other possible errors separately if needed
-
-    return res.status(401).send({
-      message: "Authentication failed",
-      status: false,
-    });
-  }
-};
-
-// Saving logged user
-const SaveCurrentUser = async (req, res, next) => {
-  try {
-    // Check if the token exists and has the expected format
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith("Bearer")) {
-      return res.status(401).send({
-        message: "Invalid or missing authorization header",
-        status: false,
-      });
-    }
-
-    const token = authHeader.split(" ")[1];
-
-    const email = await verifyToken(token);
-
-    // console.log(email)
-
-    // Query your database using the email to get the user information
-    const user = await userModel.findOne({ email });
-
-    if (!user) {
-      return res.status(401).send({
-        message: "User not found",
-        status: false,
-      });
-    }
-
-    // Check if the token has expired
-    const currentDate = new Date();
-    if (token.exp && token.exp < currentDate.getTime() / 1000) {
-      return res.status(401).send({
-        message: "Token has expired",
-        status: false,
-      });
-    }
-
-    // Check if lastLoginTime is already set
-    if (!user.lastLoginTime) {
-      user.lastLoginTime = new Date();
-      await user.save();
-    }
-
-    const timeOnly = user.lastLoginTime.toLocaleTimeString("en-US", {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-
-    return res.status(201).send({
-      message:
-        "Now that you are logged in to our website, what are you doing with us?",
-      status: true,
-      user: {
-        username: user.username,
-        email: user.email,
-        firstname: user.firstname, // Include the firstname field
-        lastname: user.lastname, // Include the lastname field
-        wallet: user.Wallet,
-        date: currentDate.toDateString(),
-        time: timeOnly,
-        image: user.image, // Use user.image for the image field
-        // Include other user information as needed
-      },
-    });
-  } catch (error) {
-    console.log(error);
-    return res.status(500).send({
-      message: "Internal server error",
-      status: false,
-    });
-  }
-};
-
 // editing userdata
 const EditProfile = async (req, res, next) => {
   try {
-    const { firstname, lastname, username, email, image } = req.body;
+    const { username, email, image } = req.body;
     console.log(req.body);
 
     // Find the user based on the provided username
@@ -282,8 +153,6 @@ const EditProfile = async (req, res, next) => {
     }
 
     // Update the user's profile information
-    getuser.firstname = firstname;
-    getuser.lastname = lastname;
     getuser.username = username;
     getuser.email = email;
     getuser.image = image;
@@ -594,6 +463,10 @@ const UpdateUsersWallet = async (req, res, next) => {
   const { username, amount } = req.body;
   console.log("Username:", username);
   console.log("Amount:", amount);
+
+  // Get the current date and time
+  const currentDate = new Date();
+
   try {
     const user = await userModel.findOne({ username });
     console.log(user);
@@ -613,8 +486,6 @@ const UpdateUsersWallet = async (req, res, next) => {
     // After saving the user
     await user.save();
 
-    const currentDate = new Date();
-
     // Format the date and time as "YYYY-MM-DD HH:MM:SS" (24-hour clock)
     const formattedDateTime = currentDate.toLocaleString("en-US", {
       year: "numeric",
@@ -627,10 +498,19 @@ const UpdateUsersWallet = async (req, res, next) => {
 
     console.log("Wallet updated for user:", user.email);
 
-    return res.status(200).json({
+    const userData = {
+      username: user.username,
+      email: user.email,
+      wallet: user.Wallet,
+      image: user.image,
+      formattedDateTime,
+    };
+
+    return res.status(200).send({
       success: true,
       message: `Payment verified and wallet updated successfully, an amount of ${amount} has been added to your wallet`,
-      formattedDateTime
+      formattedDateTime,
+      userData,
     });
   } catch (error) {
     console.error("Error:", error);
@@ -743,7 +623,9 @@ const PayThrift = async (req, res, next) => {
 
     // Check if there's no thrift group available
     if (!thriftGroup) {
-      return res.status(400).send({ message: "Thrift group not found", status: false });
+      return res
+        .status(400)
+        .send({ message: "Thrift group not found", status: false });
     }
 
     // Convert userWallet to float
@@ -755,20 +637,24 @@ const PayThrift = async (req, res, next) => {
     // Check if all users in the group have completed their payments
     if (thriftGroup.Members.length !== thriftGroup.RequiredUsers) {
       return res.status(400).send({
-        message: "Thrift group has to be completed before payment could be made.",
+        message:
+          "Thrift group has to be completed before payment could be made.",
         status: false,
       });
     }
 
     // Check if the user has enough balance
     if (userWallet < parseFloat(amount)) {
-      return res.status(400).send({ message: "Insufficient balance", status: false });
+      return res
+        .status(400)
+        .send({ message: "Insufficient balance", status: false });
     }
 
     // Check if the amount paid is less than the amountPerThrift
     if (parseFloat(amount) < parseFloat(amountPerThrift)) {
       return res.status(400).send({
-        message: "The amount you're trying to pay is less than the required amount",
+        message:
+          "The amount you're trying to pay is less than the required amount",
         status: false,
       });
     }
@@ -776,7 +662,8 @@ const PayThrift = async (req, res, next) => {
     // Check if the amount paid is greater than the amountPerThrift
     if (parseFloat(amount) > parseFloat(amountPerThrift)) {
       return res.status(400).send({
-        message: "The amount you're trying to pay is more than the required amount",
+        message:
+          "The amount you're trying to pay is more than the required amount",
         status: false,
       });
     }
@@ -790,7 +677,8 @@ const PayThrift = async (req, res, next) => {
       thriftGroup.Members.length === requiredUser
     ) {
       return res.status(400).send({
-        message: "Your payment is completed already; you can't make another payment at this instance",
+        message:
+          "Your payment is completed already; you can't make another payment at this instance",
         status: false,
       });
     }
@@ -842,10 +730,11 @@ const PayThrift = async (req, res, next) => {
     });
   } catch (error) {
     console.error(error);
-    return res.status(500).send({ message: "Error making payment to group", status: false });
+    return res
+      .status(500)
+      .send({ message: "Error making payment to group", status: false });
   }
 };
-
 
 // Withdrawing money from the group wallet
 const WithdrawFunds = async (req, res, next) => {
@@ -925,14 +814,16 @@ const WithdrawFunds = async (req, res, next) => {
 // sending email to user when he forgot his password
 const forgotPassword = async (req, res, next) => {
   const { email } = req.body;
-  if(!email){
-    return res.status(404).send({message : "email is required", status : false})
+  if (!email) {
+    return res
+      .status(404)
+      .send({ message: "email is required", status: false });
   }
-  const user = await  userModel.findOne({email})
-  if(!user){
-     return res.status(404).send({message : "User Not Found", status : false})
+  const user = await userModel.findOne({ email });
+  if (!user) {
+    return res.status(404).send({ message: "User Not Found", status: false });
   }
-  const username = user.username
+  const username = user.username;
   console.log(req.body);
   try {
     const generatedNum = Math.floor(Math.random() * 9999);
@@ -1001,11 +892,57 @@ const ResetPassword = async (req, res, next) => {
   }
 };
 
+const getCurrentUpdate = async (req, res) => {
+  const { username } = req.body;
+  console.log(req.body)
+
+  try {
+    // Find the user without sorting
+    const getUser = await userModel.findOne({ username });
+
+    if (getUser) {
+      const currentDate = new Date();
+
+      // Format the date and time as "YYYY-MM-DD HH:MM:SS" (24-hour clock)
+      const formattedDateTime = currentDate.toLocaleString("en-US", {
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+      });
+
+      const userData = {
+        username: getUser.username,
+        email: getUser.email,
+        wallet: getUser.Wallet,
+        image: getUser.image,
+        formattedDateTime,
+      };
+
+      console.log(userData);
+      return res
+        .status(200)
+        .send({ message: "here are the user data", status: true, userData });
+    } else {
+      return res.status(404).send({
+        message: "User not found",
+      });
+    }
+  } catch (error) {
+    console.error("Error:", error);
+    return res.status(500).json({
+      message: "Error fetching user's data",
+    });
+  }
+};
+
 module.exports = {
   signup,
   signin,
-  verifyUserToken,
-  SaveCurrentUser,
+  getCurrentUpdate,
+  // SaveCurrentUser,
   CreateAThrift,
   FindExistingThrift,
   GetMembers,

@@ -4,7 +4,7 @@ const SecretKey = "uthman12";
 const generateToken = (email) => {
   try {
     // Change expiresIn value to set the desired token expiration time (e.g., "1h" for one hour)
-    const token = jwt.sign({ email }, SecretKey, { expiresIn: "1d" });
+    const token = jwt.sign({ email }, SecretKey, { expiresIn: "24hr" });
     return token;
   } catch (err) {
     console.log(err);
