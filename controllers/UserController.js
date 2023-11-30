@@ -893,16 +893,15 @@ const ResetPassword = async (req, res, next) => {
 };
 
 const getCurrentUpdate = async (req, res) => {
-  const { username } = req.body;
-  console.log(req.body)
+  const { username } = req.query; // Use req.query to get parameters from the URL
+  console.log("Received Username : ", req.query);
 
   try {
     // Find the user without sorting
     const getUser = await userModel.findOne({ username });
-
+    console.log("user", getUser);
     if (getUser) {
       const currentDate = new Date();
-
       // Format the date and time as "YYYY-MM-DD HH:MM:SS" (24-hour clock)
       const formattedDateTime = currentDate.toLocaleString("en-US", {
         year: "numeric",
@@ -921,7 +920,7 @@ const getCurrentUpdate = async (req, res) => {
         formattedDateTime,
       };
 
-      console.log(userData);
+      console.log("userData sentt :", userData);
       return res
         .status(200)
         .send({ message: "here are the user data", status: true, userData });

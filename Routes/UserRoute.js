@@ -9,7 +9,7 @@ UserRouter.post("/CreateThrift", CreateAThrift);
 UserRouter.get("/ExistingThrift", FindExistingThrift);
 UserRouter.post("/getMembers", GetMembers);
 UserRouter.post("/addusers", AddUserToGroup);
-UserRouter.post("/getData", getCurrentUpdate);
+UserRouter.get("/getData", getCurrentUpdate);
 UserRouter.get("/getDetails/:id", getGroupDetails);
 UserRouter.post("/updateWallet", UpdateUsersWallet); 
 UserRouter.post("/editProfile", EditProfile);
