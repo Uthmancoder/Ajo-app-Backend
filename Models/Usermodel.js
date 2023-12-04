@@ -10,7 +10,7 @@ const userSchema = new mongoose.Schema({
     lastLoginTime: {type: Date},
     TotalWithdrawal : {type : Number, default : 0},
     TotalDeposit : {type : Number, default : 0},
-    TotalTransaction : {type : Number, default : 0},
+    TotalTransactions : {type : Number, default : 0},
     TransactionHistory : [{type : String, default : ""}],
 }, {timestamps : true});
 
