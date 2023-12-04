@@ -24,7 +24,7 @@ const signup = async (req, res, next) => {
         status: false,
       });
     }
-    console.log(req.body);
+
     const existingUser = await userModel.findOne({ email });
     const usernameExist = await userModel.findOne({ username });
 
@@ -39,13 +39,21 @@ const signup = async (req, res, next) => {
         status: false,
       });
     }
+
     const hash = await bcryptjs.hash(password, 10);
+
+    // Include additional details in the user model when creating a user
     const newUser = await userModel.create({
       username,
       email,
       password: hash,
       confirmPassword,
       image,
+      Wallet: 0, // Default value for Wallet
+      TotalWithdrawal: 0, // Default value for TotalWithdrawal
+      TotalDeposit: 0, // Default value for TotalDeposit
+      TotalTransaction: 0, // Default value for TotalTransaction
+      TransactionHistory: [], // Default value for TransactionHistory 
     });
 
     sendMail(email, username); // Make sure the sendMail function is imported
@@ -60,6 +68,7 @@ const signup = async (req, res, next) => {
     next(err);
   }
 };
+
 
 // signin to your account
 const signin = async (req, res, next) => {
@@ -114,6 +123,10 @@ const signin = async (req, res, next) => {
       wallet: result.Wallet,
       image: result.image,
       formattedDateTime,
+      TotalDeposit: result.TotalDeposit,
+      TotalTransactions: result.TotalTransactions,
+      TotalWithdrawal: result.TotalWithdrawal,
+      TransactionHistory: result.TransactionHistory,
     };
     console.log(userData);
     return res.status(200).send({
@@ -246,7 +259,6 @@ const CreateAThrift = async (req, res, next) => {
       Members,
       creatorUsername,
     } = req.body;
-    console.log(req.body);
 
     // Check if groupname exists
     const existingGroupName = await ThriftModel.findOne({ groupName });
@@ -271,24 +283,17 @@ const CreateAThrift = async (req, res, next) => {
           payment: paymentArray,
         });
       }
-      console.log("allmembers after loop :", allMembers);
-    } else {
-      // Initialize a default member with creatorUsername
-      allMembers.push({
-        username: creatorUsername || "",
-        verified: true,
-        payment: [{ paid: false }],
-      });
     }
-
-    console.log("creatorUsername:", creatorUsername);
-    console.log("allMembers before username assignment:", allMembers);
 
     // Add the thrift creator as a member with verified set to true
     allMembers[0].username = creatorUsername;
     allMembers[0].verified = true;
 
-    console.log("allMembers after username assignment:", allMembers);
+    // Set the NextWithdrawal to the creatorUsername
+    const nextWithdrawalIndex = 0;
+
+    // Update TotalWithdrawal
+    const TotalWithdraws = 0; // Set to 0 initially
 
     const newThrift = await ThriftModel.create({
       groupName,
@@ -300,7 +305,8 @@ const CreateAThrift = async (req, res, next) => {
       image_url: imageFile,
       Wallet,
       Members: allMembers,
-      createdAt: createdAt,
+      NextWithdrawal: allMembers[nextWithdrawalIndex].username,
+      TotalWithdraws,
     });
 
     // Save the new thrift group document
@@ -323,6 +329,8 @@ const CreateAThrift = async (req, res, next) => {
     return res.status(201).send({
       message: `${newThrift.groupName}, group created successfully. We are so happy to have you on board. You can kindly add more users to your group via the group link.`,
       status: true,
+      NextWithdrawal,
+      TotalWithdraws,
       formattedDateTime,
     });
   } catch (error) {
@@ -458,18 +466,15 @@ const getGroupDetails = async (req, res, next) => {
   }
 };
 
-// Funding user's wallet
 const UpdateUsersWallet = async (req, res, next) => {
   const { username, amount } = req.body;
-  console.log("Username:", username);
-  console.log("Amount:", amount);
 
   // Get the current date and time
   const currentDate = new Date();
 
   try {
     const user = await userModel.findOne({ username });
-    console.log(user);
+
     if (!user) {
       return res
         .status(404)
@@ -483,10 +488,15 @@ const UpdateUsersWallet = async (req, res, next) => {
     user.Wallet = parseFloat(user.Wallet) + parseFloat(amount);
     console.log("New Wallet Balance:", user.Wallet);
 
-    // After saving the user
-    await user.save();
+    // Update TotalDeposits
+    const TotalDeposit = (user.TotalDeposit =
+      parseFloat(user.TotalDeposit) + 1);
 
-    // Format the date and time as "YYYY-MM-DD HH:MM:SS" (24-hour clock)
+    // Update TotalTransactions
+    const TotalTransactions = (user.TotalTransaction =
+      parseFloat(user.TotalTransaction) + 1);
+
+    // Update TransactionHistory
     const formattedDateTime = currentDate.toLocaleString("en-US", {
       year: "numeric",
       month: "2-digit",
@@ -496,6 +506,12 @@ const UpdateUsersWallet = async (req, res, next) => {
       second: "2-digit",
     });
 
+    const transactionDetails = `Category : Wallet Funding, Amount added: ${amount}, Date: ${formattedDateTime}`;
+    const TransactionHistory = user.TransactionHistory.push(transactionDetails);
+
+    // After saving the user
+    await user.save();
+
     console.log("Wallet updated for user:", user.email);
 
     const userData = {
@@ -504,6 +520,9 @@ const UpdateUsersWallet = async (req, res, next) => {
       wallet: user.Wallet,
       image: user.image,
       formattedDateTime,
+      TotalDeposit,
+      TotalTransactions,
+      TransactionHistory,
     };
 
     return res.status(200).send({
@@ -539,9 +558,10 @@ const AddUserToGroup = async (req, res, next) => {
     }
 
     if (!user) {
+      // If the user doesn't exist, send a message and status to notify the client
       return res.status(404).send({
-        message: "User not found. Try signing up for a new account.",
-        status: false,
+        message: "User not found. Please sign up for a new account.",
+        status: "new_user",
       });
     }
 
@@ -607,6 +627,7 @@ const AddUserToGroup = async (req, res, next) => {
 const PayThrift = async (req, res, next) => {
   // data expecting from the client
   const { username, amount, groupName, amountPerThrift } = req.body;
+  console.log(req.body);
 
   try {
     // Find the user and thrift group
@@ -631,17 +652,16 @@ const PayThrift = async (req, res, next) => {
     // Convert userWallet to float
     const userWallet = parseFloat(getUser.Wallet);
 
-    // Convert groupWallet to float
+    // Convert groupWallet to floaty
     const groupWallet = parseFloat(thriftGroup.Wallet);
 
+    // check the required users
+    const requiredUser = thriftGroup.RequiredUsers;
+
     // Check if all users in the group have completed their payments
-    if (thriftGroup.Members.length !== thriftGroup.RequiredUsers) {
-      return res.status(400).send({
-        message:
-          "Thrift group has to be completed before payment could be made.",
-        status: false,
-      });
-    }
+
+    console.log("Number of Members:", thriftGroup.Members.length);
+    console.log("Required Users:", requiredUser);
 
     // Check if the user has enough balance
     if (userWallet < parseFloat(amount)) {
@@ -668,26 +688,14 @@ const PayThrift = async (req, res, next) => {
       });
     }
 
-    const requiredUser = thriftGroup.RequiredUsers;
-
-    // Check if the user's payment is completed
-    if (
-      thriftGroup.Members &&
-      Array.isArray(thriftGroup.Members) &&
-      thriftGroup.Members.length === requiredUser
-    ) {
+    // check if group is completed before making payment
+    if (thriftGroup.Members.length !== requiredUser) {
       return res.status(400).send({
         message:
-          "Your payment is completed already; you can't make another payment at this instance",
+          "Thrift group has to be completed before a payment could be made",
         status: false,
       });
     }
-
-    // Deduct the specified amount from the user's wallet
-    getUser.Wallet = (userWallet - parseFloat(amount)).toFixed(2);
-
-    // Add the deducted amount to the group's wallet
-    thriftGroup.Wallet = (groupWallet + parseFloat(amount)).toFixed(2);
 
     // Find the user's index within the thriftGroup.Members array
     const memberIndex = thriftGroup.Members.findIndex(
@@ -697,6 +705,25 @@ const PayThrift = async (req, res, next) => {
     if (memberIndex !== -1) {
       // Find the user's payment array
       const userPaymentArray = thriftGroup.Members[memberIndex].payment;
+
+      // Check if all payments are completed
+      const allPaymentsCompleted = userPaymentArray.every(
+        (paymentObject) => paymentObject.paid
+      );
+
+      if (allPaymentsCompleted) {
+        return res.status(400).send({
+          message:
+            "Your payment is completed already; you can't make another payment at this instance",
+          status: false,
+        });
+      }
+
+      // Deduct the specified amount from the user's wallet
+      getUser.Wallet = (userWallet - parseFloat(amount)).toFixed(2);
+
+      // Add the deducted amount to the group's wallet
+      thriftGroup.Wallet = (groupWallet + parseFloat(amount)).toFixed(2);
 
       // Find the first payment object in the user's payment array with paid set to false
       const firstUnpaidIndex = userPaymentArray.findIndex(
@@ -709,14 +736,26 @@ const PayThrift = async (req, res, next) => {
       }
     }
 
-    // Save changes to user and group documents in the database
-    await getUser.save();
-    await thriftGroup.save();
+    // Update TotalTransactions
+    const TotalTransactions = (user.TotalTransaction =
+      parseFloat(user.TotalTransaction) + 1);
 
     const currentDate = new Date();
 
     // Format the date and time as "YYYY-MM-DD HH:MM:SS" (24-hour clock)
-    const formattedDateTime = currentDate.toISOString();
+    const formattedDateTime = currentDate.toLocaleString("en-US", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    });
+    const transactionDetails = `An amount of  ${amount} was deducted from your wallet, Date: ${formattedDateTime}`;
+    const TransactionHistory = user.TransactionHistory.push(transactionDetails);
+    // Save changes to user and group documents in the database
+    await getUser.save();
+    await thriftGroup.save();
 
     console.log(
       "User Payment Status Updated:",
@@ -726,6 +765,8 @@ const PayThrift = async (req, res, next) => {
     return res.status(200).send({
       message: `A payment of ${amount} has been made successfully to ${groupName}`,
       formattedDateTime,
+      TotalTransactions,
+      TransactionHistory,
       status: true,
     });
   } catch (error) {
@@ -761,7 +802,7 @@ const WithdrawFunds = async (req, res, next) => {
     if (!allVerified) {
       return res.status(400).send({
         message:
-          "Not all users are verified.Payment  Verification for all users is required before withdrawing.",
+          "Not all users are verified. Payment verification for all users is required before withdrawing.",
       });
     }
 
@@ -776,21 +817,36 @@ const WithdrawFunds = async (req, res, next) => {
     // Subtract the amount from the thrift group's wallet
     thriftGroup.Wallet -= amount;
 
+    // Update TotalTransactions
+    const TotalTransactions = (user.TotalTransaction =
+      parseFloat(user.TotalTransaction) + 1);
+
+    // Update TotalWithdrawal
+    const TotalWithdrawal = parseFloat(user.TotalWithdrawal) + 1;
+    // Update group TotalWithdraws
+    const GrpTotalWithdraws = parseFloat(thriftGroup.TotalWithdraws) + 1;
+
     // Add the amount to the user's wallet
     user.Wallet += amount;
+
+    // Move the next withdrawer to the next index in the Members array
+    const currentWithdrawerIndex = thriftGroup.Members.findIndex(
+      (member) => member.username === Withdrawer
+    );
+    const nextWithdrawerIndex =
+      (currentWithdrawerIndex + 1) % thriftGroup.Members.length;
+
+    // Update NextWithdrawal in the thrift group
+    const NextWithdrawal = (thriftGroup.NextWithdrawal =
+      thriftGroup.Members[nextWithdrawerIndex].username);
 
     // Reset payments for all users in the thrift group
     thriftGroup.Members.forEach((member) => {
       member.payment = member.payment.map(() => ({ paid: false }));
     });
 
-    // Save the updated thrift group and user data
-    await thriftGroup.save();
-    await user.save();
-
-    const currentDate = new Date();
-
     // Format the date and time as "YYYY-MM-DD HH:MM:SS" (24-hour clock)
+    const currentDate = new Date();
     const formattedDateTime = currentDate.toLocaleString("en-US", {
       year: "numeric",
       month: "2-digit",
@@ -799,10 +855,21 @@ const WithdrawFunds = async (req, res, next) => {
       minute: "2-digit",
       second: "2-digit",
     });
+    const transactionDetails = `An amount of  ${amount} was withdrawn from ${groupName} and added to your wallet, Date: ${formattedDateTime}`;
+    const TransactionHistory = user.TransactionHistory.push(transactionDetails);
+
+    // Save the updated thrift group and user data
+    await thriftGroup.save();
+    await user.save();
 
     res.status(200).send({
-      message: ` You just made Withdrawal of ${amount} From ${groupName}, we're so glad for your contribution  with us  `,
+      message: `You just made a withdrawal of ${amount} from ${groupName}. We're so glad for your contribution with us.`,
       formattedDateTime,
+      TotalTransactions,
+      TransactionHistory,
+      GrpTotalWithdraws,
+      NextWithdrawal,
+      TotalWithdrawal,
       status: true,
     });
   } catch (error) {
@@ -917,6 +984,10 @@ const getCurrentUpdate = async (req, res) => {
         email: getUser.email,
         wallet: getUser.Wallet,
         image: getUser.image,
+        TotalDeposit: getUser.TotalDeposit,
+        TotalWithdrawal: getUser.TotalWithdrawal,
+        TotalTransactions: getUser.TotalTransactions,
+        TransactionHistory: getUser.TransactionHistory,
         formattedDateTime,
       };
 
