@@ -751,7 +751,11 @@ const PayThrift = async (req, res, next) => {
       minute: "2-digit",
       second: "2-digit",
     });
-    const transactionDetails = `An amount of  ${amount} was deducted from your wallet, Date: ${formattedDateTime}`;
+    const transactionDetails = {
+      Category : "Thrift Payment",
+      Amount: amount,
+      Date: formattedDateTime,    
+    }
     const TransactionHistory = user.TransactionHistory.push(transactionDetails);
     // Save changes to user and group documents in the database
     await getUser.save();
@@ -855,7 +859,11 @@ const WithdrawFunds = async (req, res, next) => {
       minute: "2-digit",
       second: "2-digit",
     });
-    const transactionDetails = `An amount of  ${amount} was withdrawn from ${groupName} and added to your wallet, Date: ${formattedDateTime}`;
+    const transactionDetails = {
+      Category : "Contribution Withdrawal",
+      Amount: amount,
+      Date: formattedDateTime,    
+    }
     const TransactionHistory = user.TransactionHistory.push(transactionDetails);
 
     // Save the updated thrift group and user data
