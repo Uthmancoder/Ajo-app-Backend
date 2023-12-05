@@ -628,6 +628,13 @@ const AddUserToGroup = async (req, res, next) => {
       payment: paymentArray, // Set the payment status array
     });
 
+    // Ensure the creator is always the first index
+    thriftGroup.Members.sort((a, b) => {
+      if (a.username === thriftGroup.creatorUsername) return -1;
+      if (b.username === thriftGroup.creatorUsername) return 1;
+      return 0;
+    });
+
     // Increase payment status for all users
     const updatedPaymentArray = Array(thriftGroup.Members.length).fill({
       paid: false,
@@ -652,6 +659,88 @@ const AddUserToGroup = async (req, res, next) => {
     });
   }
 };
+
+// const AddUserToGroup = async (req, res, next) => {
+//   try {
+//     const { username, groupname } = req.body;
+//     console.log(req.body);
+
+//     // Find the thrift group based on the groupname
+//     const thriftGroup = await ThriftModel.findOne({ groupName: groupname });
+//     const user = await userModel.findOne({ username : username });
+
+//     if (!thriftGroup) {
+//       return res.status(404).send({
+//         message: "Thrift group not found.",
+//         status: false,
+//       });
+//     }
+
+//     if (!user) {
+//       // If the user doesn't exist, send a message and status to notify the client
+//       return res.status(404).send({
+//         message: "User not found. Please sign up for a new account.",
+//         status: "new_user",
+//       });
+//     }
+
+//     // Check if the user is already a member of the group
+//     const isUserAlreadyMember = thriftGroup.Members.find(
+//       (member) => member.username === username
+//     );
+
+//     if (isUserAlreadyMember) {
+//       return res.status(400).send({
+//         message: "User is already a member of the group.",
+//         status: false,
+//       });
+//     }
+
+//     // Check if the group is completed
+//     if (thriftGroup.Members.length === thriftGroup.RequiredUsers) {
+//       return res.status(400).send({
+//         message: "Thrift group Completed, try joining a new group",
+//         status: false,
+//       });
+//     }
+
+//     // Initialize the payment array for the new user
+//     const paymentArray = [];
+//     for (let i = 0; i < thriftGroup.Members.length; i++) {
+//       paymentArray.push({ paid: false });
+//     }
+
+//     // Add the new user to the Members array
+//     thriftGroup.Members.push({
+//       username: username,
+//       verified: true, // Set verification status to true
+//       payment: paymentArray, // Set the payment status array
+//     });
+
+//     // Increase payment status for all users
+//     const updatedPaymentArray = Array(thriftGroup.Members.length).fill({
+//       paid: false,
+//     });
+
+//     thriftGroup.Members.forEach((member, index) => {
+//       member.payment = updatedPaymentArray; // Update payment array for each member
+//     });
+
+//     await thriftGroup.save();
+
+//     return res.status(200).send({
+//       message: "User added to the group successfully.",
+//       status: true,
+//     });
+//   } catch (error) {
+//     console.log("Internal server error", error);
+//     return res.status(500).send({
+//       message: "Internal server error",
+//       error,
+//       status: false,
+//     });
+//   }
+// };
 
 // Paying of thrifts to each group
 const PayThrift = async (req, res, next) => {
@@ -817,8 +906,6 @@ const WithdrawFunds = async (req, res, next) => {
   try {
     const { Withdrawer, username, groupName, amount } = req.body;
 
-    console.log(req.body);
-
     const user = await userModel.findOne({ username });
 
     if (!user) {
@@ -853,14 +940,14 @@ const WithdrawFunds = async (req, res, next) => {
     thriftGroup.Wallet -= amount;
 
     // Update TotalTransactions
-    const TotalTransactions = (user.TotalTransactions =
-      parseFloat(user.TotalTransactions) + 1);
+    user.TotalTransactions += 1;
 
-    // Update TotalWithdrawal
-    const TotalWithdrawal = thriftGroup.TotalWithdrawal + 1;
+    // Update TotalWithdraws made by user
+    user.TotalWithdrawal += 1;
 
     // Update group TotalWithdraws
-    const GrpTotalWithdraws = thriftGroup.TotalWithdraws + 1;
+    thriftGroup.TotalWithdraws += 1;
+
     // Add the amount to the user's wallet
     user.Wallet += amount;
 
@@ -871,23 +958,9 @@ const WithdrawFunds = async (req, res, next) => {
     const nextWithdrawerIndex =
       (currentWithdrawerIndex + 1) % thriftGroup.Members.length;
 
-    console.log(
-      "Before update:",
-      currentWithdrawerIndex,
-      nextWithdrawerIndex,
-      thriftGroup.Members
-    );
-
     // Update NextWithdrawal in the thrift group
-    const NextWithdrawal = (thriftGroup.NextWithdrawal =
-      thriftGroup.Members[nextWithdrawerIndex].username);
-
-    console.log(
-      "After update:",
-      currentWithdrawerIndex,
-      nextWithdrawerIndex,
-      thriftGroup.Members
-    );
+    thriftGroup.NextWithdrawal =
+      thriftGroup.Members[nextWithdrawerIndex].username;
 
     // Reset payments for all users in the thrift group
     thriftGroup.Members.forEach((member) => {
@@ -909,7 +982,9 @@ const WithdrawFunds = async (req, res, next) => {
       Amount: amount,
       Date: formattedDateTime,
     };
-    const TransactionHistory = user.TransactionHistory.push(transactionDetails);
+
+    // Push the transaction details to the TransactionHistory array
+    user.TransactionHistory.push(transactionDetails);
 
     // Save the updated thrift group and user data
     await thriftGroup.save();
@@ -918,11 +993,11 @@ const WithdrawFunds = async (req, res, next) => {
     res.status(200).send({
       message: `You just made a withdrawal of ${amount} from ${groupName}. We're so glad for your contribution with us.`,
       formattedDateTime,
-      TotalTransactions,
-      TransactionHistory,
-      GrpTotalWithdraws,
-      NextWithdrawal,
-      TotalWithdrawal,
+      TotalTransactions: user.TotalTransactions,
+      TransactionHistory: user.TransactionHistory,
+      GrpTotalWithdraws: thriftGroup.TotalWithdraws,
+      NextWithdrawal: thriftGroup.NextWithdrawal,
+      TotalWithdrawal: thriftGroup.TotalWithdrawal,
       status: true,
     });
   } catch (error) {
