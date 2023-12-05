@@ -11,7 +11,7 @@ const userSchema = new mongoose.Schema({
     TotalWithdrawal : {type : Number, default : 0},
     TotalDeposit : {type : Number, default : 0},
     TotalTransactions : {type : Number, default : 0},
-    TransactionHistory : [{type : String, default : ""}],
+    TransactionHistory: [{ type: Object, default: {} }],
 }, {timestamps : true});
 
 

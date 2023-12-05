@@ -1,15 +1,9 @@
 const userModel = require("../Models/Usermodel");
-const jwt = require("jsonwebtoken");
-const multer = require("multer");
 const bcryptjs = require("bcryptjs");
-// const argon2 = require("argon2");
 const ThriftModel = require("../Models/CreateThtift");
 const { sendMail, ForgotPassword } = require("../Config/MyMailer");
 const cloudinary = require("cloudinary").v2;
 const { generateToken, verifyToken } = require("../Services/SessionService");
-const axios = require("axios");
-const { response } = require("express");
-// const { default: Email } = require("next-auth/providers/email");
 
 // sign up for a new account
 const signup = async (req, res, next) => {
@@ -39,7 +33,19 @@ const signup = async (req, res, next) => {
         status: false,
       });
     }
+    // Upload user image to Cloudinary
+    let userImg;
+    try {
+      userImg = await cloudinary.uploader.upload(image);
+    } catch (cloudinaryError) {
+      console.error("Error uploading image to Cloudinary", cloudinaryError);
+      return res.status(500).send({
+        message: "Error uploading image to Cloudinary",
+        status: false,
+      });
+    }
 
+    // hash user's password
     const hash = await bcryptjs.hash(password, 10);
 
     // Include additional details in the user model when creating a user
@@ -48,12 +54,12 @@ const signup = async (req, res, next) => {
       email,
       password: hash,
       confirmPassword,
-      image,
+      image: userImg.secure_url,
       Wallet: 0, // Default value for Wallet
       TotalWithdrawal: 0, // Default value for TotalWithdrawal
       TotalDeposit: 0, // Default value for TotalDeposit
       TotalTransaction: 0, // Default value for TotalTransaction
-      TransactionHistory: [], // Default value for TransactionHistory 
+      TransactionHistory: [], // Default value for TransactionHistory
     });
 
     sendMail(email, username); // Make sure the sendMail function is imported
@@ -68,7 +74,6 @@ const signup = async (req, res, next) => {
     next(err);
   }
 };
-
 
 // signin to your account
 const signin = async (req, res, next) => {
@@ -256,10 +261,10 @@ const CreateAThrift = async (req, res, next) => {
       imageFile,
       Wallet,
       Total,
-      Members,
       creatorUsername,
     } = req.body;
 
+    console.log(req.body);
     // Check if groupname exists
     const existingGroupName = await ThriftModel.findOne({ groupName });
     if (existingGroupName) {
@@ -270,30 +275,33 @@ const CreateAThrift = async (req, res, next) => {
       });
     }
 
-    // Initialize the members array with the creator and other members
-    const allMembers = [];
-
-    if (Array.isArray(Members) && Members.length > 0) {
-      // Loop through the Members array and initialize paymentArray
-      for (let i = 0; i < Members.length; i++) {
-        const paymentArray = [{ paid: false }]; // Each member has a single payment object
-        allMembers.push({
-          username: Members[i].username || "",
-          verified: false,
-          payment: paymentArray,
-        });
-      }
-    }
-
-    // Add the thrift creator as a member with verified set to true
-    allMembers[0].username = creatorUsername;
-    allMembers[0].verified = true;
+    // Initialize the members array with the creator
+    const allMembers = [
+      {
+        username: creatorUsername,
+        verified: true,
+        payment: [{ paid: false }],
+      },
+    ];
+    console.log("All members after assignment :", allMembers);
 
     // Set the NextWithdrawal to the creatorUsername
     const nextWithdrawalIndex = 0;
 
     // Update TotalWithdrawal
     const TotalWithdraws = 0; // Set to 0 initially
+
+    // Upload user image to Cloudinary
+    let groupImg;
+    try {
+      groupImg = await cloudinary.uploader.upload(imageFile);
+    } catch (cloudinaryError) {
+      console.error("Error uploading image to Cloudinary", cloudinaryError);
+      return res.status(500).send({
+        message: "Error uploading image to Cloudinary",
+        status: false,
+      });
+    }
 
     const newThrift = await ThriftModel.create({
       groupName,
@@ -302,7 +310,7 @@ const CreateAThrift = async (req, res, next) => {
       interest,
       plan,
       Total,
-      image_url: imageFile,
+      image_url: groupImg.secure_url,
       Wallet,
       Members: allMembers,
       NextWithdrawal: allMembers[nextWithdrawalIndex].username,
@@ -329,7 +337,7 @@ const CreateAThrift = async (req, res, next) => {
     return res.status(201).send({
       message: `${newThrift.groupName}, group created successfully. We are so happy to have you on board. You can kindly add more users to your group via the group link.`,
       status: true,
-      NextWithdrawal,
+      NextWithdrawal: newThrift.NextWithdrawal,
       TotalWithdraws,
       formattedDateTime,
     });
@@ -506,7 +514,11 @@ const UpdateUsersWallet = async (req, res, next) => {
       second: "2-digit",
     });
 
-    const transactionDetails = `Category : Wallet Funding, Amount added: ${amount}, Date: ${formattedDateTime}`;
+    const transactionDetails = {
+      Category: "Wallet Funding",
+      Amount: amount,
+      Date: formattedDateTime,
+    };
     const TransactionHistory = user.TransactionHistory.push(transactionDetails);
 
     // After saving the user
@@ -737,8 +749,8 @@ const PayThrift = async (req, res, next) => {
     }
 
     // Update TotalTransactions
-    const TotalTransactions = (user.TotalTransaction =
-      parseFloat(user.TotalTransaction) + 1);
+    const TotalTransactions = (getUser.TotalTransaction =
+      parseFloat(getUser.TotalTransaction) + 1);
 
     const currentDate = new Date();
 
@@ -752,11 +764,11 @@ const PayThrift = async (req, res, next) => {
       second: "2-digit",
     });
     const transactionDetails = {
-      Category : "Thrift Payment",
+      Category: "Thrift Payment",
       Amount: amount,
-      Date: formattedDateTime,    
-    }
-    const TransactionHistory = user.TransactionHistory.push(transactionDetails);
+      Date: formattedDateTime,
+    };
+    const TransactionHistory = getUser.TransactionHistory.push(transactionDetails);
     // Save changes to user and group documents in the database
     await getUser.save();
     await thriftGroup.save();
@@ -860,10 +872,10 @@ const WithdrawFunds = async (req, res, next) => {
       second: "2-digit",
     });
     const transactionDetails = {
-      Category : "Contribution Withdrawal",
+      Category: "Contribution Withdrawal",
       Amount: amount,
-      Date: formattedDateTime,    
-    }
+      Date: formattedDateTime,
+    };
     const TransactionHistory = user.TransactionHistory.push(transactionDetails);
 
     // Save the updated thrift group and user data
