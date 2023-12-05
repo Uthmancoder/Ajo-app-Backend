@@ -4,6 +4,11 @@ const ThriftModel = require("../Models/CreateThtift");
 const { sendMail, ForgotPassword } = require("../Config/MyMailer");
 const cloudinary = require("cloudinary").v2;
 const { generateToken, verifyToken } = require("../Services/SessionService");
+const cloudinaryConfig = cloudinary.config({
+  cloud_name: "uthmancoder",
+  api_key: "331917233267244",
+  api_secret: "jYxuv8THBooQjFelkHSLcSLCcCI",
+});
 
 // sign up for a new account
 const signup = async (req, res, next) => {
@@ -33,36 +38,36 @@ const signup = async (req, res, next) => {
         status: false,
       });
     }
-    // Upload user image to Cloudinary
+
     let userImg;
     try {
       userImg = await cloudinary.uploader.upload(image);
     } catch (cloudinaryError) {
       console.error("Error uploading image to Cloudinary", cloudinaryError);
+
+      // Handle Cloudinary upload error and return an appropriate response
       return res.status(500).send({
         message: "Error uploading image to Cloudinary",
         status: false,
       });
     }
 
-    // hash user's password
     const hash = await bcryptjs.hash(password, 10);
 
-    // Include additional details in the user model when creating a user
     const newUser = await userModel.create({
       username,
       email,
       password: hash,
       confirmPassword,
       image: userImg.secure_url,
-      Wallet: 0, // Default value for Wallet
-      TotalWithdrawal: 0, // Default value for TotalWithdrawal
-      TotalDeposit: 0, // Default value for TotalDeposit
-      TotalTransaction: 0, // Default value for TotalTransaction
-      TransactionHistory: [], // Default value for TransactionHistory
+      Wallet: 0,
+      TotalWithdrawal: 0,
+      TotalDeposit: 0,
+      TotalTransaction: 0,
+      TransactionHistory: [],
     });
 
-    sendMail(email, username); // Make sure the sendMail function is imported
+    sendMail(email, username);
 
     return res.status(201).send({
       message: "Account created successfully!",
@@ -170,10 +175,23 @@ const EditProfile = async (req, res, next) => {
       return res.status(400).send({ message: "User not found", status: false });
     }
 
+    let userImg;
+    try {
+      userImg = await cloudinary.uploader.upload(image);
+    } catch (cloudinaryError) {
+      console.error("Error uploading image to Cloudinary", cloudinaryError);
+
+      // Handle Cloudinary upload error and return an appropriate response
+      return res.status(500).send({
+        message: "Error uploading image to Cloudinary",
+        status: false,
+      });
+    }
+
     // Update the user's profile information
     getuser.username = username;
     getuser.email = email;
-    getuser.image = image;
+    getuser.image = userImg.secure_url;
 
     // Save the updated user profile
     await getuser.save();
