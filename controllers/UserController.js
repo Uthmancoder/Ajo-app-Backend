@@ -501,8 +501,8 @@ const UpdateUsersWallet = async (req, res, next) => {
       parseFloat(user.TotalDeposit) + 1);
 
     // Update TotalTransactions
-    const TotalTransactions = (user.TotalTransaction =
-      parseFloat(user.TotalTransaction) + 1);
+    const TotalTransactions = (user.TotalTransactions =
+      parseFloat(user.TotalTransactions) + 1);
 
     // Update TransactionHistory
     const formattedDateTime = currentDate.toLocaleString("en-US", {
@@ -749,8 +749,8 @@ const PayThrift = async (req, res, next) => {
     }
 
     // Update TotalTransactions
-    const TotalTransactions = (getUser.TotalTransaction =
-      parseFloat(getUser.TotalTransaction) + 1);
+    const TotalTransactions = (getUser.TotalTransactions =
+      parseFloat(getUser.TotalTransactions) + 1);
 
     const currentDate = new Date();
 
@@ -768,7 +768,8 @@ const PayThrift = async (req, res, next) => {
       Amount: amount,
       Date: formattedDateTime,
     };
-    const TransactionHistory = getUser.TransactionHistory.push(transactionDetails);
+    const TransactionHistory =
+      getUser.TransactionHistory.push(transactionDetails);
     // Save changes to user and group documents in the database
     await getUser.save();
     await thriftGroup.save();
@@ -834,14 +835,14 @@ const WithdrawFunds = async (req, res, next) => {
     thriftGroup.Wallet -= amount;
 
     // Update TotalTransactions
-    const TotalTransactions = (user.TotalTransaction =
-      parseFloat(user.TotalTransaction) + 1);
+    const TotalTransactions = (user.TotalTransactions =
+      parseFloat(user.TotalTransactions) + 1);
 
     // Update TotalWithdrawal
-    const TotalWithdrawal = parseFloat(user.TotalWithdrawal) + 1;
-    // Update group TotalWithdraws
-    const GrpTotalWithdraws = parseFloat(thriftGroup.TotalWithdraws) + 1;
+    const TotalWithdrawal = thriftGroup.TotalWithdrawal + 1;
 
+    // Update group TotalWithdraws
+    const GrpTotalWithdraws = thriftGroup.TotalWithdraws + 1;
     // Add the amount to the user's wallet
     user.Wallet += amount;
 
@@ -852,9 +853,23 @@ const WithdrawFunds = async (req, res, next) => {
     const nextWithdrawerIndex =
       (currentWithdrawerIndex + 1) % thriftGroup.Members.length;
 
+    console.log(
+      "Before update:",
+      currentWithdrawerIndex,
+      nextWithdrawerIndex,
+      thriftGroup.Members
+    );
+
     // Update NextWithdrawal in the thrift group
     const NextWithdrawal = (thriftGroup.NextWithdrawal =
       thriftGroup.Members[nextWithdrawerIndex].username);
+
+    console.log(
+      "After update:",
+      currentWithdrawerIndex,
+      nextWithdrawerIndex,
+      thriftGroup.Members
+    );
 
     // Reset payments for all users in the thrift group
     thriftGroup.Members.forEach((member) => {
