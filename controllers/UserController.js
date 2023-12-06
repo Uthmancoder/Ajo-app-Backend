@@ -437,6 +437,8 @@ const GetMembers = async (req, res, next) => {
         groupIcon: thriftGroup.image_url,
         RequiredUsers: thriftGroup.RequiredUsers,
         Amount: thriftGroup.Amount,
+        TotalWithdraws : thriftGroup.TotalWithdraws,
+        NextWithdrawal: thriftGroup.NextWithdrawal,
         plan: thriftGroup.plan,
         Total: thriftGroup.Total,
         wallet: thriftGroup.Wallet,
@@ -491,7 +493,7 @@ const getGroupDetails = async (req, res, next) => {
     return res.status(500).send({ message: "Internal server error" });
   }
 };
-
+// fund wallet
 const UpdateUsersWallet = async (req, res, next) => {
   const { username, amount } = req.body;
 
