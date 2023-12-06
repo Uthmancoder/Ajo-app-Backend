@@ -616,10 +616,9 @@ const AddUserToGroup = async (req, res, next) => {
     }
 
     // Initialize the payment array for the new user
-    const paymentArray = [];
-    for (let i = 0; i < thriftGroup.Members.length; i++) {
-      paymentArray.push({ paid: false });
-    }
+    const paymentArray = Array(thriftGroup.Members.length).fill({
+      paid: false,
+    });
 
     // Add the new user to the Members array
     thriftGroup.Members.push({
@@ -634,6 +633,9 @@ const AddUserToGroup = async (req, res, next) => {
       if (b.username === thriftGroup.creatorUsername) return 1;
       return 0;
     });
+
+    // Update NextWithdrawal to the creatorUsername
+    thriftGroup.NextWithdrawal = thriftGroup.Members[0].username;
 
     // Increase payment status for all users
     const updatedPaymentArray = Array(thriftGroup.Members.length).fill({
@@ -995,7 +997,7 @@ const WithdrawFunds = async (req, res, next) => {
       formattedDateTime,
       TotalTransactions: user.TotalTransactions,
       TransactionHistory: user.TransactionHistory,
-      GrpTotalWithdraws: thriftGroup.TotalWithdraws,
+      TotalWithdraws: thriftGroup.TotalWithdraws,
       NextWithdrawal: thriftGroup.NextWithdrawal,
       TotalWithdrawal: thriftGroup.TotalWithdrawal,
       status: true,
